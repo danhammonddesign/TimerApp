@@ -141,9 +141,10 @@ final class AudioManager: NSObject, AVAudioPlayerDelegate {
     }
 
     private static func url(_ name: String, ext: String) -> URL? {
-        Bundle.module.url(forResource: name, withExtension: ext)
-            ?? Bundle.module.url(forResource: name, withExtension: ext, subdirectory: "Audio")
-            ?? Bundle.main.url(forResource: name, withExtension: ext)
+        // App playgrounds copy resources straight into the app bundle
+        Bundle.main.url(forResource: name, withExtension: ext)
+            ?? Bundle.main.url(forResource: name, withExtension: ext, subdirectory: "Audio")
+            ?? Bundle.main.url(forResource: name, withExtension: ext, subdirectory: "Resources/Audio")
     }
 }
 
