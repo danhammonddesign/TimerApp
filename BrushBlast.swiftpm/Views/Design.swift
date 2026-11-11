@@ -120,9 +120,34 @@ struct SpeechBubble: View {
     var symbol: String? = nil
     var accent: Color = Palette.blue
     var size: CGFloat = 24
+    /// Tail on the left (pointing at a mascot beside it) instead of underneath.
+    var tailLeading = false
 
     var body: some View {
-        VStack(spacing: 0) {
+        if tailLeading {
+            HStack(spacing: 0) {
+                Triangle()
+                    .fill(Color.white)
+                    .frame(width: 26, height: 14)
+                    .rotationEffect(.degrees(-90))
+                    .frame(width: 14, height: 26)
+                    .offset(x: 2)
+                bubble
+            }
+        } else {
+            VStack(spacing: 0) {
+                bubble
+                // little tail pointing down at the mascot
+                Triangle()
+                    .fill(Color.white)
+                    .frame(width: 26, height: 14)
+                    .rotationEffect(.degrees(180))
+                    .offset(y: 2)
+            }
+        }
+    }
+
+    private var bubble: some View {
             HStack(spacing: 10) {
                 if let symbol {
                     Image(systemName: symbol)
@@ -144,13 +169,6 @@ struct SpeechBubble: View {
                     .overlay(RoundedRectangle(cornerRadius: 18, style: .continuous).stroke(Palette.bubbleBorder, lineWidth: 3))
             )
             .background(RoundedRectangle(cornerRadius: 18, style: .continuous).fill(Palette.bubbleBorder).offset(y: 4))
-            // little tail pointing down at the mascot
-            Triangle()
-                .fill(Color.white)
-                .frame(width: 26, height: 14)
-                .rotationEffect(.degrees(180))
-                .offset(y: 2)
-        }
     }
 }
 

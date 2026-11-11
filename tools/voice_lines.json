@@ -94,5 +94,62 @@
       "cheer2": "Germ zapper at full power!",
       "cheer3": "Beep beep! Your teeth are shiny!"
     }
+  },
+  "marble": {
+    "voice": "af_nova",
+    "speed": 1.0,
+    "lines": {
+      "intro": "Hi, marble master! Let's fill the whole board while we brush!",
+      "top_front": "Start with your top front teeth. Little circles, round like marbles!",
+      "top_left": "Roll over to the top teeth on the left side!",
+      "top_right": "Now bounce over to the top teeth on the right side!",
+      "top_inside": "Turn your brush and clean the inside of your top teeth!",
+      "bottom_front": "The board is half full! Now brush your bottom front teeth.",
+      "bottom_left": "Drop down to the bottom teeth on the left side!",
+      "bottom_right": "Now the bottom teeth on the right side. Plink, plink, plink!",
+      "bottom_inside": "Last row! Brush the inside of your bottom teeth, and your tongue too!",
+      "finale": "The board is full! You're a marble champion with a super clean smile!",
+      "cheer1": "Plink, plonk, great brushing!",
+      "cheer2": "Look at all those marbles!",
+      "cheer3": "You're on a roll!"
+    }
+  },
+  "sand": {
+    "voice": "bf_lily",
+    "speed": 1.0,
+    "lines": {
+      "intro": "Hello, sand artist! Let's fill the jar with rainbow sand!",
+      "top_front": "First, your top front teeth. Brush in little circles!",
+      "top_left": "Swish over to the top teeth on the left side!",
+      "top_right": "Now the top teeth on the right side. Pour, pour, pour!",
+      "top_inside": "Turn your brush and clean the inside of your top teeth!",
+      "bottom_front": "The jar is half full! Now brush your bottom front teeth.",
+      "bottom_left": "Slide down to the bottom teeth on the left side!",
+      "bottom_right": "Now the bottom teeth on the right side. So colorful!",
+      "bottom_inside": "Last layer! Brush the inside of your bottom teeth, and your tongue too!",
+      "finale": "The jar is full of rainbow sand! What a beautiful, sparkly smile!",
+      "cheer1": "What a pretty rainbow!",
+      "cheer2": "Keep pouring, you're doing great!",
+      "cheer3": "Layer by layer, super brushing!"
+    }
+  },
+  "tiles": {
+    "voice": "af_sky",
+    "speed": 1.0,
+    "lines": {
+      "intro": "Psst! There's a secret pet hiding behind these tiles. Let's brush to find it!",
+      "top_front": "Start with your top front teeth. Brush in tiny circles!",
+      "top_left": "Now the top teeth on the left side. Flip!",
+      "top_right": "Over to the top teeth on the right side!",
+      "top_inside": "Turn your brush and clean the inside of your top teeth!",
+      "bottom_front": "Halfway there! Can you guess the pet? Now brush your bottom front teeth.",
+      "bottom_left": "Down to the bottom teeth on the left side!",
+      "bottom_right": "Now the bottom teeth on the right side. Almost there!",
+      "bottom_inside": "Last tiles! Brush the inside of your bottom teeth, and your tongue too!",
+      "finale": "Surprise! You found the secret pet! And your teeth are sparkling clean!",
+      "cheer1": "Ooh, another tile flipped!",
+      "cheer2": "I think I see a nose!",
+      "cheer3": "Is it fluffy? Keep brushing!"
+    }
   }
 }

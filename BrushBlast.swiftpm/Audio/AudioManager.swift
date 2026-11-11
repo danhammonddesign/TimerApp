@@ -12,6 +12,7 @@ final class AudioManager: NSObject, ObservableObject, AVAudioPlayerDelegate {
         case beep = "sfx_beep", beepFinal = "sfx_beep_final", whoosh = "sfx_whoosh"
         case boom = "sfx_boom", rattle = "sfx_rattle", pop = "sfx_pop"
         case fanfare = "sfx_fanfare", star = "sfx_star"
+        case clack = "sfx_clack", flip = "sfx_flip"
     }
 
     var voiceEnabled = true

@@ -185,6 +185,8 @@ struct Mascot: View {
                 .overlay(Circle().fill(Color.white.opacity(0.5)).frame(width: 6, height: 6).offset(x: -3, y: -3))
                 .opacity(0.6 + 0.4 * abs(sin(t * 3)))
                 .position(x: 100, y: 22)
+        case .propeller, .sunHat, .beret:
+            EmptyView()
         case .helmet:
             // jetpack with flickering flames
             ForEach([16.0, 184.0], id: \.self) { x in
@@ -246,6 +248,41 @@ struct Mascot: View {
             .position(x: 100, y: 22)
         case .dinoHood:
             EmptyView()
+        case .propeller:
+            // striped beanie with a spinning propeller
+            ZStack {
+                HalfDome().fill(Palette.red)
+                HalfDome().fill(Palette.yellow).mask(alignment: .center) { Rectangle().frame(width: 26) }
+                HalfDome().fill(Palette.blue).mask(alignment: .leading) { Rectangle().frame(width: 22) }
+                HalfDome().fill(Palette.blue).mask(alignment: .trailing) { Rectangle().frame(width: 22) }
+            }
+            .frame(width: 112, height: 50)
+            .position(x: 100, y: 34)
+            Capsule().fill(Palette.redLip).frame(width: 120, height: 12).position(x: 100, y: 59)
+            Capsule().fill(Palette.border).frame(width: 5, height: 16).position(x: 100, y: 4)
+            ZStack {
+                Ellipse().fill(Palette.green).frame(width: 30, height: 10).offset(x: -15)
+                Ellipse().fill(Palette.purple).frame(width: 30, height: 10).offset(x: 15)
+                Circle().fill(Palette.yellow).frame(width: 9, height: 9)
+            }
+            .scaleEffect(x: CGFloat(cos(t * 18)), y: 1)
+            .position(x: 100, y: -4)
+        case .beret:
+            // artist's beret, tilted
+            ZStack {
+                Ellipse().fill(Palette.purpleLip).frame(width: 130, height: 46).offset(y: 4)
+                Ellipse().fill(Palette.purple).frame(width: 130, height: 46)
+                Capsule().fill(Palette.purpleLip).frame(width: 6, height: 16).offset(y: -28)
+            }
+            .rotationEffect(.degrees(-10))
+            .position(x: 92, y: 40)
+        case .sunHat:
+            // floppy bucket hat with a band
+            Ellipse().fill(Color(hex: 0xE0A905)).frame(width: 168, height: 30).position(x: 100, y: 58)
+            Ellipse().fill(Palette.yellow).frame(width: 168, height: 26).position(x: 100, y: 55)
+            HalfDome().fill(Palette.yellow).frame(width: 104, height: 48).position(x: 100, y: 30)
+            Rectangle().fill(Color(hex: 0x2EC4B6)).frame(width: 104, height: 10).position(x: 100, y: 48)
+            Circle().fill(Palette.pink).frame(width: 18, height: 18).position(x: 140, y: 46)
         case .robot:
             ForEach([14.0, 186.0], id: \.self) { x in
                 RoundedRectangle(cornerRadius: 5)
@@ -277,6 +314,19 @@ struct ToothShape: Shape {
         path.addCurve(to: p(0.06, 0.30), control1: p(0.12, 0.66), control2: p(0.08, 0.55))
         path.closeSubpath()
         return path
+    }
+}
+
+/// Top half of a circle (flat side at the bottom) — hats and caps.
+struct HalfDome: Shape {
+    func path(in r: CGRect) -> Path {
+        var p = Path()
+        p.move(to: CGPoint(x: r.minX, y: r.maxY))
+        p.addCurve(to: CGPoint(x: r.maxX, y: r.maxY),
+                   control1: CGPoint(x: r.minX, y: r.minY - r.height * 0.3),
+                   control2: CGPoint(x: r.maxX, y: r.minY - r.height * 0.3))
+        p.closeSubpath()
+        return p
     }
 }
 

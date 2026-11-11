@@ -26,7 +26,10 @@ enum Palette {
 }
 
 /// The tooth mascot's outfit for each theme.
-enum Costume { case helmet, snorkel, dinoHood, unicorn, robot }
+enum Costume { case helmet, snorkel, dinoHood, unicorn, robot, propeller, sunHat, beret }
+
+/// What the countdown looks like for a theme.
+enum TimerStyle { case ring, plinko, sandJar, tiles }
 
 /// A theme kids can pick: colors, mascot costume, narrator (voice files) and stickers.
 struct Theme: Identifiable, Equatable {
@@ -43,12 +46,52 @@ struct Theme: Identifiable, Equatable {
     let shapeColors: [Color]    // flat shapes drifting in the background
     let finaleTitle: String
     let stickers: [Sticker]
+    var timer: TimerStyle = .ring
 
     static func == (lhs: Theme, rhs: Theme) -> Bool { lhs.id == rhs.id }
 
-    static let all: [Theme] = [space, ocean, dino, rainbow, robot]
+    static let all: [Theme] = [marble, sand, tiles, space, ocean, dino, rainbow, robot]
 
     static func named(_ id: String) -> Theme { all.first { $0.id == id } ?? space }
+
+    static let marble = Theme(
+        id: "marble", name: "Marble Drop", tagline: "Fill the whole board with marbles!", costume: .propeller,
+        bgTop: Color(hex: 0x1B2A4A), bgBottom: Color(hex: 0x0F1830),
+        primary: Palette.red, primaryLip: Palette.redLip, primaryLight: Color(hex: 0xFF9A9A), buttonText: .white,
+        shapeColors: [Palette.red, Palette.yellow, Palette.blue, Palette.green],
+        finaleTitle: "Board full!",
+        stickers: Sticker.set("marble", [
+            ("🎱", "Eight Ball", .common), ("🎯", "Bullseye", .common), ("🪀", "Yo-yo", .common),
+            ("🔮", "Crystal Orb", .rare), ("🧿", "Lucky Eye", .rare), ("💎", "Diamond Marble", .legendary),
+        ]),
+        timer: .plinko
+    )
+
+    static let sand = Theme(
+        id: "sand", name: "Sand Art", tagline: "Fill the jar with rainbow sand!", costume: .sunHat,
+        bgTop: Color(hex: 0x2A1E4A), bgBottom: Color(hex: 0x160F2C),
+        primary: Color(hex: 0x2EC4B6), primaryLip: Color(hex: 0x219E92), primaryLight: Color(hex: 0x8FF0E6), buttonText: .white,
+        shapeColors: [Palette.yellow, Palette.pink, Color(hex: 0x2EC4B6), Palette.orange],
+        finaleTitle: "Jar full!",
+        stickers: Sticker.set("sand", [
+            ("⏳", "Hourglass", .common), ("🌵", "Cactus", .common), ("🐪", "Camel", .common),
+            ("🐱", "Kitty Jar", .rare), ("🐶", "Puppy Jar", .rare), ("🦈", "Golden Shark", .legendary),
+        ]),
+        timer: .sandJar
+    )
+
+    static let tiles = Theme(
+        id: "tiles", name: "Secret Picture", tagline: "Flip the tiles to find a secret pet!", costume: .beret,
+        bgTop: Color(hex: 0x0F3B3A), bgBottom: Color(hex: 0x08201F),
+        primary: Palette.purple, primaryLip: Palette.purpleLip, primaryLight: Color(hex: 0xD8B4FF), buttonText: .white,
+        shapeColors: [Palette.purple, Palette.yellow, Color(hex: 0x2EC4B6)],
+        finaleTitle: "Surprise!",
+        stickers: Sticker.set("tiles", [
+            ("🧩", "Puzzle Piece", .common), ("🖼️", "Picture Frame", .common), ("🃏", "Joker Card", .common),
+            ("🐾", "Paw Print", .rare), ("🎀", "Big Bow", .rare), ("🦁", "Lion Cub", .legendary),
+        ]),
+        timer: .tiles
+    )
 
     static let space = Theme(
         id: "space", name: "Rocket Brush", tagline: "Blast off to a new planet!", costume: .helmet,

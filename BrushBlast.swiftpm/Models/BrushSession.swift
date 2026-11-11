@@ -77,6 +77,12 @@ final class BrushSession: ObservableObject {
         audio.stopAll()
     }
 
+    /// Smooth elapsed time for animations that run every frame (the timer itself only ticks 20x a second).
+    func elapsed(at date: Date) -> TimeInterval {
+        guard !isPaused, !isFinished, let last = lastTick else { return elapsed }
+        return min(elapsed + min(max(date.timeIntervalSince(last), 0), 0.5), duration)
+    }
+
     /// Handy for testing the finale: jump to a few seconds before the end.
     func skipToEnd() {
         elapsed = max(elapsed, duration - 6)

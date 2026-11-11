@@ -10,6 +10,8 @@ struct BrushingView: View {
     @StateObject private var session: BrushSession
     @ObservedObject private var audio = AudioManager.shared
     @State private var showPause = false
+    @State private var pet: Pet = .cat
+    @State private var tileSeed = UInt64.random(in: 1...UInt64.max)
 
     init(theme: Theme, duration: TimeInterval, onFinish: @escaping () -> Void, onQuit: @escaping () -> Void) {
         self.theme = theme
@@ -24,11 +26,7 @@ struct BrushingView: View {
 
             VStack(spacing: 12) {
                 topBar
-                zoneBubble
-                TimerRing(session: session, theme: theme, talking: audio.isSpeaking)
-                    .frame(maxWidth: 340, maxHeight: 340)
-                    .padding(.bottom, 26)      // room for the time pill hanging off the bottom
-                    .layoutPriority(1)
+                timerSection
                 Spacer(minLength: 0)
                 MouthMap(zone: session.zone, theme: theme)
                     .frame(height: 150)
@@ -61,6 +59,8 @@ struct BrushingView: View {
         }
         .animation(.spring(response: 0.35, dampingFraction: 0.55), value: session.countdown)
         .onAppear {
+            // a new surprise each time: which pet is hidden / which jar shape
+            pet = theme.timer == .sandJar ? Pet.allCases.randomElement()! : [Pet.cat, .dog].randomElement()!
             UIApplication.shared.isIdleTimerDisabled = true      // keep the screen on while brushing
             AudioManager.shared.voiceEnabled = settings.voiceOn
             AudioManager.shared.musicEnabled = settings.musicOn
@@ -88,6 +88,67 @@ struct BrushingView: View {
             ZoneSegments(current: session.zone, zoneProgress: session.zoneProgress, theme: theme)
         }
         .padding(.top, 6)
+    }
+
+    /// Each theme gets its own kind of timer.
+    @ViewBuilder
+    private var timerSection: some View {
+        switch theme.timer {
+        case .ring:
+            zoneBubble
+            TimerRing(session: session, theme: theme, talking: audio.isSpeaking)
+                .frame(maxWidth: 340, maxHeight: 340)
+                .padding(.bottom, 26)      // room for the time pill hanging off the bottom
+                .layoutPriority(1)
+        case .plinko:
+            sideBubble
+            PlinkoBoard(session: session, theme: theme)
+                .overlay(alignment: .bottom) { timePill }
+                .padding(.bottom, 26)
+                .layoutPriority(1)
+        case .sandJar:
+            sideBubble
+            SandJarTimer(session: session, theme: theme, pet: pet)
+                .overlay(alignment: .bottom) { timePill }
+                .padding(.bottom, 26)
+                .layoutPriority(1)
+        case .tiles:
+            sideBubble
+            TileRevealTimer(session: session, theme: theme, pet: pet == .shark ? .cat : pet, seed: tileSeed)
+                .overlay(alignment: .bottom) { timePill }
+                .padding(.bottom, 26)
+                .layoutPriority(1)
+        }
+    }
+
+    private var timePill: some View {
+        TimePill(seconds: Int(ceil(session.remaining)),
+                 color: session.remaining <= 10 ? Palette.red : Palette.ink, size: 40)
+            .offset(y: 26)
+            // grown-ups: long-press the time to jump to the end and test the finale
+            .onLongPressGesture(minimumDuration: 1.5) { session.skipToEnd() }
+    }
+
+    /// Chompy beside the speech bubble (for timers that need the middle of the screen).
+    private var sideBubble: some View {
+        HStack(spacing: 6) {
+            Mascot(costume: theme.costume,
+                   mood: session.countdown != nil ? .wow : .happy,
+                   talking: audio.isSpeaking,
+                   look: session.zone.look,
+                   brushing: true,
+                   size: 72)
+            ZStack {
+                SpeechBubble(text: session.zone.title, symbol: session.zone.symbol, accent: theme.primary,
+                             size: 22, tailLeading: true)
+                    .id(session.zone)
+                    .transition(.asymmetric(insertion: .scale(scale: 0.3, anchor: .leading).combined(with: .opacity),
+                                            removal: .opacity))
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .animation(.spring(response: 0.45, dampingFraction: 0.55), value: session.zone)
+        }
+        .frame(height: 86)
     }
 
     private var zoneBubble: some View {

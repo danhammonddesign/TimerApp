@@ -14,7 +14,15 @@ the side of the mouth being brushed, scrubs with a toothbrush and wears a costum
 
 *(Brushing screen mockup, drawn from the same shapes and sizes as the app.)*
 
-- **5 themes** kids pick from: 🚀 Rocket Brush, 🐠 Ocean Dive, 🦖 Dino Stomp, 🦄 Unicorn Magic, 🤖 Robot Power.
+<img src="new-timers-preview.png" width="700" alt="Marble, sand and tile timers">
+
+- **8 themes** kids pick from: 🔴 Marble Drop, 🏜️ Sand Art, 🧩 Secret Picture, 🚀 Rocket Brush, 🐠 Ocean Dive,
+  🦖 Dino Stomp, 🦄 Unicorn Magic, 🤖 Robot Power.
+- **Each new theme has its own kind of timer:**
+  - *Marble Drop* — a plinko board: marbles bounce down the pegs and pile up; the board is completely full the moment time runs out.
+  - *Sand Art* — rainbow sand pours into a jar shaped like a cat, puppy or shark (random each time). Every brushing zone adds a new color layer.
+  - *Secret Picture* — a 5×6 grid of tiles; every few seconds one wobbles and flips away. When time's up, a cute cat or puppy is revealed.
+  - The other themes use the big countdown ring with Chompy inside.
   Each one has its own colors, floating background art, hero character, music loop and **its own narrator voice**.
 - **Spoken brushing coaching** made with [Kokoro TTS](https://github.com/hexgrad/kokoro) (Apache-2.0).
   The mouth is split into 8 zones (top front → top left → top right → top insides → bottom front → …).
@@ -55,6 +63,7 @@ BrushBlast.swiftpm/
   Models/RewardStore.swift   sticker collection, streak, saved settings
   Audio/AudioManager.swift   narrator queue, sound effects, music + ducking, haptics
   Views/Mascot.swift         Chompy the tooth mascot + costumes
+  Views/Timers/              Plinko board, sand jar, tile reveal, cat/puppy art
   Views/Design.swift         colors, chunky buttons, progress bar, speech bubble, background, confetti
   Views/                     Home, Brushing, Finale, Sticker Book screens
   Resources/Audio/           all generated sounds (voice_*.m4a, sfx_*.wav, music_*.wav)

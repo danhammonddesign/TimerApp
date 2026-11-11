@@ -166,6 +166,18 @@ def sfx():
         (0.45, brass(60, 1.4) * 0.6),
     ))
 
+    # Marble landing: short glassy clack
+    d = 0.09
+    clack = (osc(note(100), d) * 0.6 + osc(note(107), d) * 0.3 + lowpass(noise(d), 5000) * 0.5) * env(int(d * SR), 0.0005, 0.018)
+    save("sfx_clack", clack)
+
+    # Tile flip: quick whoosh + card snap
+    d = 0.22
+    x = t(d)
+    swish = lowpass(noise(d), 1500 + 5000 * x / d) * np.sin(np.pi * x / d) ** 2 * 0.6
+    snap = osc(note(88), 0.08) * env(int(0.08 * SR), 0.0005, 0.02)
+    save("sfx_flip", mix((0, swish), (0.12, snap)))
+
     # Star collected (each finished zone)
     save("sfx_star", mix((0, bell(note(88), 0.4, 0.15)), (0.06, bell(note(95), 0.6, 0.25))))
 
@@ -218,6 +230,9 @@ def main():
     music("music_ocean", 100, 65, ["I", "IV", "vi", "V", "I", "IV", "ii", "V"], lead="tri", swing=0.33, bass="sine", kick=False, lead_gain=0.3)
     music("music_dino", 118, 55, ["i", "bVI", "bVII", "i", "i", "iv", "bVII", "i"], lead="saw", arp_pattern=(0, 0, 2, 1), bass="square", lead_gain=0.12)
     music("music_rainbow", 128, 67, ["I", "V", "vi", "IV", "I", "V", "IV", "V"], lead="sine", arp_pattern=(0, 1, 2, 3, 4, 3, 2, 1), sparkle=True, lead_gain=0.25)
+    music("music_marble", 116, 64, ["I", "iii", "IV", "V", "I", "vi", "IV", "V"], lead="tri", arp_pattern=(0, 2, 1, 2, 3, 2), sparkle=True, lead_gain=0.28)
+    music("music_sand", 96, 62, ["I", "IV", "I", "V", "vi", "IV", "ii", "V"], lead="sine", swing=0.25, bass="sine", kick=False, sparkle=True, lead_gain=0.3)
+    music("music_tiles", 108, 60, ["I", "vi", "ii", "V", "I", "vi", "IV", "V"], lead="square", arp_pattern=(0, 1, 2, 1, 3, 1), lead_gain=0.12, sparkle=True)
     music("music_robot", 124, 60, ["i", "i", "bVI", "bVII", "i", "i", "iv", "bVII"], lead="square", arp_pattern=(0, 3, 1, 3, 2, 3), bass="square", lead_gain=0.12)
 
 
