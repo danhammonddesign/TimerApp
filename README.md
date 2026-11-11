@@ -6,9 +6,13 @@ The look is flat and chunky: bold solid colors, big rounded type, 3D "squishy" b
 a thick glossy progress bar and speech bubbles. The star is **Chompy**, an original tooth
 mascot drawn entirely in code. Chompy blinks, talks while the narrator speaks, looks toward
 the side of the mouth being brushed, scrubs with a toothbrush and wears a costume per theme
-(space helmet, snorkel mask, dino spikes, unicorn horn, robot antenna).
+(jetpack, snorkel mask, dino spikes, unicorn horn, robot antenna).
 
 ![Chompy in all five costumes](chompy-preview.png)
+
+<img src="timer-preview.png" width="300" alt="Brushing screen mockup">
+
+*(Brushing screen mockup, drawn from the same shapes and sizes as the app.)*
 
 - **5 themes** kids pick from: 🚀 Rocket Brush, 🐠 Ocean Dive, 🦖 Dino Stomp, 🦄 Unicorn Magic, 🤖 Robot Power.
   Each one has its own colors, floating background art, hero character, music loop and **its own narrator voice**.
@@ -36,7 +40,7 @@ You need a Mac with **Xcode 15 or newer** (free on the Mac App Store), or **Swif
    (a free Apple ID works; the app then needs re-installing every 7 days. A $99/yr developer account removes that).
 4. Press ▶ Run. On the phone, the first time: *Settings → General → VPN & Device Management* → trust your developer profile.
 
-Tip for grown-ups: **long-press the time** in the top-right corner of the brushing screen for 1.5 s to jump to the
+Tip for grown-ups: **long-press the time** under the big timer ring for 1.5 s to jump to the
 last few seconds — handy for testing the finale without brushing for 2 minutes.
 
 ## Project layout

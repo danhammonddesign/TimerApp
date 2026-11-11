@@ -186,7 +186,30 @@ struct Mascot: View {
                 .opacity(0.6 + 0.4 * abs(sin(t * 3)))
                 .position(x: 100, y: 22)
         case .helmet:
-            EmptyView()
+            // jetpack with flickering flames
+            ForEach([16.0, 184.0], id: \.self) { x in
+                let flicker = 0.8 + 0.25 * abs(sin(t * 18 + x))
+                Triangle()
+                    .fill(Palette.orange)
+                    .frame(width: 22, height: 34 * flicker)
+                    .rotationEffect(.degrees(180))
+                    .position(x: CGFloat(x), y: 178 + 17 * flicker)
+                Triangle()
+                    .fill(Palette.yellow)
+                    .frame(width: 12, height: 20 * flicker)
+                    .rotationEffect(.degrees(180))
+                    .position(x: CGFloat(x), y: 176 + 10 * flicker)
+                RoundedRectangle(cornerRadius: 12, style: .continuous)
+                    .fill(Color(hex: 0xB9C7D1))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 12, style: .continuous)
+                            .fill(Palette.blue)
+                            .frame(height: 12)
+                            .offset(y: 18)
+                    )
+                    .frame(width: 30, height: 76)
+                    .position(x: CGFloat(x), y: 136)
+            }
         }
     }
 
@@ -194,18 +217,13 @@ struct Mascot: View {
     private func costumeFront(t: Double) -> some View {
         switch costume {
         case .helmet:
-            Circle()
-                .fill(Color(hex: 0x9BE7FF).opacity(0.16))
-                .overlay(Circle().stroke(Color.white.opacity(0.9), lineWidth: 6))
-                .frame(width: 206, height: 206)
-                .position(x: 100, y: 112)
-            Capsule()
-                .fill(Color.white.opacity(0.75))
-                .frame(width: 12, height: 40)
-                .rotationEffect(.degrees(35))
-                .position(x: 44, y: 54)
-            Capsule().fill(Palette.border).frame(width: 7, height: 26).position(x: 154, y: 8)
-            Circle().fill(Palette.yellow).frame(width: 16, height: 16).position(x: 154, y: -2)
+            // space headset: antenna with a star on top
+            Capsule().fill(Palette.border).frame(width: 7, height: 30).position(x: 100, y: 34)
+            Sparkle()
+                .fill(Palette.yellow)
+                .frame(width: 30, height: 30)
+                .rotationEffect(.degrees(sin(t * 2) * 15))
+                .position(x: 100, y: 16)
         case .snorkel:
             RoundedRectangle(cornerRadius: 22, style: .continuous)
                 .fill(Color(hex: 0x9BE7FF).opacity(0.35))
