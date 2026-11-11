@@ -8,6 +8,7 @@ struct BrushingView: View {
 
     @EnvironmentObject var settings: AppSettings
     @StateObject private var session: BrushSession
+    @ObservedObject private var audio = AudioManager.shared
     @State private var showPause = false
 
     init(theme: Theme, duration: TimeInterval, onFinish: @escaping () -> Void, onQuit: @escaping () -> Void) {
@@ -19,44 +20,42 @@ struct BrushingView: View {
 
     var body: some View {
         ZStack {
-            AnimatedBackground(theme: theme, speedBoost: 1.4)
-            // the screen glows brighter as you get closer to the end
-            RadialGradient(colors: [theme.accent.opacity(0.35 * session.progress), .clear],
-                           center: .center, startRadius: 10, endRadius: 420)
-                .ignoresSafeArea()
-                .allowsHitTesting(false)
+            FlatBackground(theme: theme, speed: 1.3)
 
             VStack(spacing: 14) {
                 topBar
-                zoneBanner
                 Spacer(minLength: 0)
-                ProgressRing(session: session, theme: theme)
-                    .frame(width: 270, height: 270)
+                mascotWithBubble
                 Spacer(minLength: 0)
                 MouthMap(zone: session.zone, theme: theme)
-                    .frame(height: 170)
-                    .padding(.horizontal, 24)
-                ZoneStars(current: session.zone, theme: theme)
-                    .padding(.bottom, 8)
+                    .frame(height: 165)
+                ZoneSegments(current: session.zone, zoneProgress: session.zoneProgress, theme: theme)
+                Button("Pause") {
+                    AudioManager.shared.play(.tap)
+                    session.pause()
+                    withAnimation(.spring(response: 0.35)) { showPause = true }
+                }
+                .buttonStyle(OutlineButtonStyle())
             }
-            .padding(.horizontal)
+            .padding(.horizontal, 20)
+            .padding(.bottom, 8)
 
-            // little celebration every time a zone is finished
-            ConfettiView(trigger: session.zoneCelebration, emojis: [theme.floaters[0], "⭐️"], style: .small,
-                         origin: CGPoint(x: 0.5, y: 0.45))
+            // little celebration each time a zone is finished
+            ConfettiView(trigger: session.zoneCelebration, colors: [theme.primary, theme.primaryLight, .white],
+                         style: .small, origin: CGPoint(x: 0.5, y: 0.35))
                 .ignoresSafeArea()
                 .allowsHitTesting(false)
 
             if let n = session.countdown {
                 Text("\(n)")
-                    .cartoonText(220, color: theme.accent)
+                    .chunkyText(200, color: theme.primary, lip: theme.primaryLip)
                     .id(n)
-                    .transition(.asymmetric(insertion: .scale(scale: 2.5).combined(with: .opacity),
-                                            removal: .scale(scale: 0.3).combined(with: .opacity)))
+                    .transition(.asymmetric(insertion: .scale(scale: 2.2).combined(with: .opacity),
+                                            removal: .scale(scale: 0.4).combined(with: .opacity)))
                     .allowsHitTesting(false)
             }
 
-            if showPause { pauseOverlay }
+            if showPause { pauseSheet }
         }
         .animation(.spring(response: 0.35, dampingFraction: 0.55), value: session.countdown)
         .onAppear {
@@ -78,145 +77,88 @@ struct BrushingView: View {
     // MARK: Pieces
 
     private var topBar: some View {
-        HStack {
-            Button {
+        HStack(spacing: 12) {
+            IconButton(symbol: "xmark") {
                 AudioManager.shared.play(.tap)
                 session.pause()
-                withAnimation(.spring()) { showPause = true }
-            } label: {
-                Image(systemName: "pause.fill")
-                    .font(.system(size: 22, weight: .black))
-                    .foregroundStyle(.white)
-                    .frame(width: 52, height: 52)
-                    .background(Circle().fill(.white.opacity(0.2)))
+                withAnimation(.spring(response: 0.35)) { showPause = true }
             }
-            Spacer()
-            Text(theme.name)
-                .cartoonText(22)
-                // grown-ups: long-press the title to jump to the end and test the finale
+            ChunkyProgressBar(progress: session.progress, color: theme.primary, light: theme.primaryLight)
+                .animation(.linear(duration: 0.1), value: session.progress)
+            Text(timeString)
+                .font(.system(size: 20, weight: .heavy, design: .rounded))
+                .monospacedDigit()
+                .foregroundStyle(theme.primary)
+                .frame(minWidth: 52, alignment: .trailing)
+                // grown-ups: long-press the time to jump to the end and test the finale
                 .onLongPressGesture(minimumDuration: 1.5) { session.skipToEnd() }
-            Spacer()
-            Text(theme.goal)
-                .font(.system(size: 34))
-                .frame(width: 52, height: 52)
         }
+        .padding(.top, 6)
     }
 
-    private var zoneBanner: some View {
-        ZStack {
-            zoneBannerContent
-                .id(session.zone)
-                .transition(.asymmetric(insertion: .scale(scale: 0.2).combined(with: .opacity),
-                                        removal: .move(edge: .top).combined(with: .opacity)))
-        }
-        .frame(height: 64)
-        .animation(.spring(response: 0.45, dampingFraction: 0.5), value: session.zone)
-    }
-
-    private var zoneBannerContent: some View {
-        HStack(spacing: 10) {
-            Text(session.zone.arrow).font(.system(size: 36))
-            Text(session.zone.title)
-                .cartoonText(30)
-                .minimumScaleFactor(0.6)
-                .lineLimit(1)
-        }
-        .padding(.horizontal, 22)
-        .padding(.vertical, 12)
-        .background(Capsule().fill(.black.opacity(0.25)))
-        .overlay(Capsule().stroke(theme.accent, lineWidth: 3))
-    }
-
-    private var pauseOverlay: some View {
-        ZStack {
-            Color.black.opacity(0.6).ignoresSafeArea()
-            VStack(spacing: 24) {
-                Text("⏸️").font(.system(size: 80))
-                Text("Paused").cartoonText(44)
-                Button("Keep Brushing!") {
-                    AudioManager.shared.play(.tap)
-                    withAnimation(.spring()) { showPause = false }
-                    session.resume()
-                }
-                .buttonStyle(BigButtonStyle(color: theme.accent))
-                Button("Stop") {
-                    AudioManager.shared.play(.tap)
-                    session.stop()
-                    onQuit()
-                }
-                .buttonStyle(BigButtonStyle(color: .white.opacity(0.85)))
-            }
-        }
-        .transition(.opacity)
-    }
-}
-
-// MARK: - Timer ring with the hero travelling to its goal
-
-struct ProgressRing: View {
-    @ObservedObject var session: BrushSession
-    let theme: Theme
-
-    var body: some View {
-        GeometryReader { geo in
-            let size = min(geo.size.width, geo.size.height)
-            let radius = size / 2 - 22
-            let angle = Angle.degrees(-90 + session.progress * 360)
-
+    private var mascotWithBubble: some View {
+        VStack(spacing: 4) {
             ZStack {
-                Circle()
-                    .fill(.black.opacity(0.25))
-                    .padding(22)
-                Circle()
-                    .stroke(.white.opacity(0.18), style: StrokeStyle(lineWidth: 26, lineCap: .round))
-                    .padding(22)
-                Circle()
-                    .trim(from: 0, to: session.progress)
-                    .stroke(AngularGradient(colors: [theme.accent.opacity(0.6), theme.accent, .white],
-                                            center: .center),
-                            style: StrokeStyle(lineWidth: 26, lineCap: .round))
-                    .rotationEffect(.degrees(-90))
-                    .shadow(color: theme.accent, radius: 12)
-                    .padding(22)
-
-                // goal at the top of the ring, waiting
-                TimelineView(.animation) { tl in
-                    let t = tl.date.timeIntervalSinceReferenceDate
-                    Text(theme.goal)
-                        .font(.system(size: 44))
-                        .scaleEffect(1 + 0.08 * sin(t * 4))
-                }
-                .offset(y: -radius)
-
-                // hero zooming around the ring
-                TimelineView(.animation) { tl in
-                    let t = tl.date.timeIntervalSinceReferenceDate
-                    Text(theme.hero)
-                        .font(.system(size: 50))
-                        .rotationEffect(.degrees(sin(t * 8) * 10))
-                        .scaleEffect(1 + 0.06 * sin(t * 10))
-                        .shadow(color: theme.accent, radius: 10)
-                }
-                .offset(x: cos(angle.radians) * radius, y: sin(angle.radians) * radius)
-
-                VStack(spacing: 0) {
-                    Text(timeString)
-                        .cartoonText(64)
-                        .monospacedDigit()
-                        .contentTransition(.numericText(countsDown: true))
-                        .animation(.default, value: Int(session.remaining))
-                    Text("\(Int(session.progress * 100))%")
-                        .cartoonText(20, color: theme.accent)
-                }
+                SpeechBubble(text: session.zone.title, symbol: session.zone.symbol, accent: theme.primary)
+                    .id(session.zone)
+                    .transition(.asymmetric(insertion: .scale(scale: 0.3, anchor: .bottom).combined(with: .opacity),
+                                            removal: .opacity))
             }
-            .frame(width: size, height: size)
-            .position(x: geo.size.width / 2, y: geo.size.height / 2)
+            .frame(height: 86)
+            .animation(.spring(response: 0.45, dampingFraction: 0.55), value: session.zone)
+
+            Mascot(costume: theme.costume,
+                   mood: session.countdown != nil ? .wow : .happy,
+                   talking: audio.isSpeaking,
+                   look: session.zone.look,
+                   brushing: true,
+                   size: 190)
         }
     }
 
     private var timeString: String {
         let s = Int(ceil(session.remaining))
         return String(format: "%d:%02d", s / 60, s % 60)
+    }
+
+    private var pauseSheet: some View {
+        ZStack(alignment: .bottom) {
+            Color.black.opacity(0.55).ignoresSafeArea()
+            VStack(spacing: 16) {
+                HStack(spacing: 14) {
+                    Mascot(costume: theme.costume, mood: .wow, size: 90)
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("Wait, don't stop now!")
+                            .chunkyText(24)
+                        Text("Your teeth are \(Int(session.progress * 100))% sparkly.")
+                            .font(.system(size: 17, weight: .bold, design: .rounded))
+                            .foregroundStyle(Palette.muted)
+                    }
+                    Spacer(minLength: 0)
+                }
+                Button("Keep brushing") {
+                    AudioManager.shared.play(.tap)
+                    withAnimation(.spring(response: 0.35)) { showPause = false }
+                    session.resume()
+                }
+                .buttonStyle(ChunkyButtonStyle(fill: theme.primary, lip: theme.primaryLip, text: theme.buttonText))
+                Button("End session") {
+                    AudioManager.shared.play(.tap)
+                    session.stop()
+                    onQuit()
+                }
+                .buttonStyle(ChunkyButtonStyle(fill: Palette.red, lip: Palette.redLip))
+            }
+            .padding(20)
+            .padding(.bottom, 10)
+            .background(
+                UnevenRoundedRectangle(topLeadingRadius: 28, topTrailingRadius: 28, style: .continuous)
+                    .fill(Palette.card)
+                    .ignoresSafeArea()
+            )
+            .transition(.move(edge: .bottom))
+        }
+        .transition(.opacity)
     }
 }
 
@@ -226,23 +168,30 @@ struct MouthMap: View {
     let zone: BrushZone
     let theme: Theme
 
-    private let teethPerArch = 10
+    private var teethPerArch: Int { 10 }
 
     var body: some View {
         GeometryReader { geo in
             let w = geo.size.width, h = geo.size.height
-            let rx = w * 0.42, ry = h * 0.36
+            let rx = w * 0.40, ry = h * 0.34
             let topCenter = CGPoint(x: w / 2, y: h * 0.47)
             let bottomCenter = CGPoint(x: w / 2, y: h * 0.53)
 
             ZStack {
-                // lips / mouth
+                // card
+                RoundedRectangle(cornerRadius: 24, style: .continuous)
+                    .fill(Color.black.opacity(0.25))
+                    .overlay(RoundedRectangle(cornerRadius: 24, style: .continuous).stroke(Color.white.opacity(0.12), lineWidth: 2.5))
+
+                // mouth
                 Capsule()
-                    .fill(Color(hex: 0x7A1F3D).opacity(0.85))
-                    .overlay(Capsule().stroke(Color(hex: 0xFF8FAB), lineWidth: 6))
+                    .fill(Color(hex: 0x8C1D33))
+                    .overlay(Capsule().stroke(Color(hex: 0xFF8FAB), lineWidth: 8))
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 16)
 
                 if zone == .bottomInside {
-                    Text("👅").font(.system(size: 46)).position(x: w / 2, y: h * 0.62)
+                    Ellipse().fill(Palette.tongue).frame(width: 70, height: 40).position(x: w / 2, y: h * 0.62)
                 }
 
                 ForEach(0..<teethPerArch, id: \.self) { i in
@@ -255,12 +204,13 @@ struct MouthMap: View {
                 // the toothbrush scrubs back and forth over the active spot
                 TimelineView(.animation) { tl in
                     let t = tl.date.timeIntervalSinceReferenceDate
-                    Text("🪥")
-                        .font(.system(size: 52))
-                        .rotationEffect(.degrees(zone.isTop ? 200 : -20))
-                        .offset(x: sin(t * 14) * 14, y: cos(t * 7) * 3)
+                    FlatToothbrush(handle: theme.primary)
+                        .frame(width: 18, height: 70)
+                        .rotationEffect(.degrees(zone.isTop ? 70 : 110))
+                        .offset(x: sin(t * 14) * 12, y: cos(t * 7) * 3)
                 }
-                .position(brushPoint(w: w, h: h, topCenter: topCenter, bottomCenter: bottomCenter, rx: rx, ry: ry))
+                .frame(width: 80, height: 80)
+                .position(brushPoint(w: w, topCenter: topCenter, bottomCenter: bottomCenter, rx: rx, ry: ry))
                 .animation(.spring(response: 0.6, dampingFraction: 0.6), value: zone)
             }
         }
@@ -276,21 +226,24 @@ struct MouthMap: View {
         }
     }
 
-    @ViewBuilder
     private func tooth(isTop: Bool, index: Int) -> some View {
         let active = isActive(top: isTop, index: index)
         let inside = active && zone.section == nil
-        TimelineView(.animation(minimumInterval: 1 / 30, paused: !active)) { tl in
+        return TimelineView(.animation(minimumInterval: 1.0 / 30.0, paused: !active)) { tl in
             let t = tl.date.timeIntervalSinceReferenceDate
-            RoundedRectangle(cornerRadius: 7, style: .continuous)
-                .fill(active ? theme.accent : .white)
-                .overlay(
-                    RoundedRectangle(cornerRadius: 7, style: .continuous)
-                        .stroke(inside ? Color.white : Color.black.opacity(0.15), style: StrokeStyle(lineWidth: inside ? 3 : 1, dash: inside ? [4, 3] : []))
-                )
-                .frame(width: 24, height: 28)
-                .shadow(color: active ? theme.accent : .clear, radius: active ? 10 : 0)
-                .scaleEffect(active ? 1.12 + 0.06 * sin(t * 9 + Double(index)) : 1)
+            ZStack {
+                RoundedRectangle(cornerRadius: 8, style: .continuous)
+                    .fill(active ? theme.primaryLip : Palette.toothShade)
+                    .offset(y: 3)
+                RoundedRectangle(cornerRadius: 8, style: .continuous)
+                    .fill(active ? theme.primary : Color.white)
+                if inside {
+                    RoundedRectangle(cornerRadius: 8, style: .continuous)
+                        .stroke(Color.white, style: StrokeStyle(lineWidth: 2.5, dash: [4, 3]))
+                }
+            }
+            .frame(width: 24, height: 27)
+            .scaleEffect(active ? 1.1 + 0.05 * sin(t * 9 + Double(index)) : 1)
         }
         .frame(width: 30, height: 34)
     }
@@ -306,7 +259,7 @@ struct MouthMap: View {
         return CGPoint(x: center.x + cos(a) * rx, y: center.y + sin(a) * ry)
     }
 
-    private func brushPoint(w: CGFloat, h: CGFloat, topCenter: CGPoint, bottomCenter: CGPoint, rx: CGFloat, ry: CGFloat) -> CGPoint {
+    private func brushPoint(w: CGFloat, topCenter: CGPoint, bottomCenter: CGPoint, rx: CGFloat, ry: CGFloat) -> CGPoint {
         let index: Int
         switch zone.section {
         case .left: index = 1
@@ -317,34 +270,36 @@ struct MouthMap: View {
         var p = point(index, center: center, rx: rx, ry: ry, top: zone.isTop)
         if zone.section == .front || zone.section == nil { p.x += w * 0.04 }
         // sit just outside the teeth (or inside, for the "inside" zones)
-        let push: CGFloat = zone.section == nil ? -34 : 30
+        let push: CGFloat = zone.section == nil ? -30 : 26
         p.y += zone.isTop ? -push : push
         return p
     }
 }
 
-// MARK: - Eight stars, one per zone
+// MARK: - Eight segments, one per zone
 
-struct ZoneStars: View {
+struct ZoneSegments: View {
     let current: BrushZone
+    let zoneProgress: Double
     let theme: Theme
 
     var body: some View {
-        HStack(spacing: 8) {
+        HStack(spacing: 6) {
             ForEach(BrushZone.allCases) { z in
-                ZStack {
-                    Circle()
-                        .fill(z == current ? theme.accent.opacity(0.4) : .white.opacity(0.15))
-                        .overlay(Circle().stroke(z == current ? theme.accent : .white.opacity(0.4), lineWidth: 2))
-                    if z.rawValue < current.rawValue {
-                        Text("⭐️").font(.system(size: 22))
-                            .transition(.scale(scale: 3).combined(with: .opacity))
+                GeometryReader { g in
+                    ZStack(alignment: .leading) {
+                        Capsule().fill(Palette.border)
+                        if z.rawValue < current.rawValue {
+                            Capsule().fill(theme.primary)
+                        } else if z == current {
+                            Capsule().fill(theme.primary)
+                                .frame(width: max(g.size.height, g.size.width * zoneProgress))
+                        }
                     }
                 }
-                .frame(width: 34, height: 34)
-                .scaleEffect(z == current ? 1.2 : 1)
+                .frame(height: 12)
             }
         }
-        .animation(.spring(response: 0.4, dampingFraction: 0.45), value: current)
+        .animation(.linear(duration: 0.1), value: zoneProgress)
     }
 }

@@ -4,7 +4,7 @@ import UIKit
 /// Plays narrator lines, sound effects and background music.
 /// Music automatically gets quieter while the narrator talks ("ducking").
 @MainActor
-final class AudioManager: NSObject, AVAudioPlayerDelegate {
+final class AudioManager: NSObject, ObservableObject, AVAudioPlayerDelegate {
     static let shared = AudioManager()
 
     enum SFX: String, CaseIterable {
@@ -67,12 +67,14 @@ final class AudioManager: NSObject, AVAudioPlayerDelegate {
         playNextVoice()
     }
 
-    var isSpeaking: Bool { voicePlayer?.isPlaying == true }
+    /// True while the narrator is talking — the mascot moves its mouth.
+    @Published private(set) var isSpeaking = false
 
     private func playNextVoice() {
         // skip anything that has been waiting too long (it would be out of sync with the timer)
         voiceQueue.removeAll { Date().timeIntervalSince($0.queuedAt) > 6 }
         guard !voiceQueue.isEmpty else {
+            isSpeaking = false
             musicPlayer?.setVolume(musicVolume, fadeDuration: 0.4)
             return
         }
@@ -81,7 +83,7 @@ final class AudioManager: NSObject, AVAudioPlayerDelegate {
         player.delegate = self
         voicePlayer = player
         musicPlayer?.setVolume(duckedVolume, fadeDuration: 0.2)
-        player.play()
+        isSpeaking = player.play()
     }
 
     nonisolated func audioPlayerDidFinishPlaying(_ player: AVAudioPlayer, successfully flag: Bool) {
@@ -95,6 +97,7 @@ final class AudioManager: NSObject, AVAudioPlayerDelegate {
         voiceQueue.removeAll()
         voicePlayer?.stop()
         voicePlayer = nil
+        isSpeaking = false
     }
 
     // MARK: Music

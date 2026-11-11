@@ -1,15 +1,46 @@
 import SwiftUI
 
-/// A visual + audio theme kids can pick. Art is all emoji, so there are no image assets to manage.
+/// Flat, bold colors used everywhere.
+enum Palette {
+    static let dark = Color(hex: 0x131F24)
+    static let card = Color(hex: 0x202F36)
+    static let border = Color(hex: 0x37464F)
+    static let muted = Color(hex: 0x8FA3AD)
+    static let ink = Color(hex: 0x3C3C3C)
+    static let snow = Color(hex: 0xF7F7F7)
+    static let bubbleBorder = Color(hex: 0xE2E2E2)
+    static let toothShade = Color(hex: 0xD6E2EA)
+
+    static let green = Color(hex: 0x5BCB0C), greenLip = Color(hex: 0x46A005)
+    static let blue = Color(hex: 0x1FB2F5), blueLip = Color(hex: 0x1592CC)
+    static let yellow = Color(hex: 0xFFCB05), yellowLip = Color(hex: 0xDDA704)
+    static let orange = Color(hex: 0xFF9A0A), orangeLip = Color(hex: 0xD97C00)
+    static let red = Color(hex: 0xFF5050), redLip = Color(hex: 0xD63636)
+    static let pink = Color(hex: 0xFF8AD2), pinkLip = Color(hex: 0xDD62AE)
+    static let purple = Color(hex: 0xB876FF), purpleLip = Color(hex: 0x9455D9)
+
+    static let mouth = Color(hex: 0xB8261A)
+    static let tongue = Color(hex: 0xFF5A6A)
+    static let cheek = Color(hex: 0xFFB3C3)
+    static let pupil = Color(hex: 0x2B2B2B)
+}
+
+/// The tooth mascot's outfit for each theme.
+enum Costume { case helmet, snorkel, dinoHood, unicorn, robot }
+
+/// A theme kids can pick: colors, mascot costume, narrator (voice files) and stickers.
 struct Theme: Identifiable, Equatable {
     let id: String              // matches audio file names: voice_<id>_*.m4a, music_<id>.wav
     let name: String
     let tagline: String
-    let hero: String            // travels around the timer ring
-    let goal: String            // what the hero is heading to
-    let floaters: [String]      // drift around the background
-    let colors: [Color]         // background gradient (top -> bottom)
-    let accent: Color
+    let costume: Costume
+    let bgTop: Color
+    let bgBottom: Color
+    let primary: Color          // buttons, progress bar, highlights
+    let primaryLip: Color       // the darker "3D" edge under buttons
+    let primaryLight: Color
+    let buttonText: Color
+    let shapeColors: [Color]    // flat shapes drifting in the background
     let finaleTitle: String
     let stickers: [Sticker]
 
@@ -20,10 +51,11 @@ struct Theme: Identifiable, Equatable {
     static func named(_ id: String) -> Theme { all.first { $0.id == id } ?? space }
 
     static let space = Theme(
-        id: "space", name: "Rocket Brush", tagline: "Blast off to a new planet!",
-        hero: "🚀", goal: "🪐", floaters: ["⭐️", "✨", "🌟", "☄️", "💫"],
-        colors: [Color(hex: 0x0B0B2B), Color(hex: 0x2B1055), Color(hex: 0x7597DE)],
-        accent: Color(hex: 0x7CF5FF), finaleTitle: "MISSION COMPLETE!",
+        id: "space", name: "Rocket Brush", tagline: "Blast off to a new planet!", costume: .helmet,
+        bgTop: Color(hex: 0x131F3A), bgBottom: Color(hex: 0x241650),
+        primary: Palette.blue, primaryLip: Palette.blueLip, primaryLight: Color(hex: 0x6FE3FF), buttonText: .white,
+        shapeColors: [Palette.yellow, Palette.blue, Palette.purple, .white],
+        finaleTitle: "Mission complete!",
         stickers: Sticker.set("space", [
             ("🌙", "Moon Buddy", .common), ("⭐️", "Super Star", .common), ("☄️", "Comet Zoom", .common),
             ("🛸", "Flying Saucer", .rare), ("👽", "Alien Pal", .rare), ("🌌", "Galaxy Swirl", .legendary),
@@ -31,10 +63,11 @@ struct Theme: Identifiable, Equatable {
     )
 
     static let ocean = Theme(
-        id: "ocean", name: "Ocean Dive", tagline: "Swim to the hidden treasure!",
-        hero: "🐠", goal: "🏝️", floaters: ["🫧", "🫧", "🐟", "🌊", "🐚"],
-        colors: [Color(hex: 0x00C6FB), Color(hex: 0x005BEA), Color(hex: 0x021B79)],
-        accent: Color(hex: 0xFFE66D), finaleTitle: "TREASURE FOUND!",
+        id: "ocean", name: "Ocean Dive", tagline: "Swim to the hidden treasure!", costume: .snorkel,
+        bgTop: Color(hex: 0x0C6FA8), bgBottom: Color(hex: 0x073A63),
+        primary: Palette.yellow, primaryLip: Palette.yellowLip, primaryLight: Color(hex: 0xFFE46B), buttonText: Color(hex: 0x5A3D00),
+        shapeColors: [.white, Color(hex: 0x6FE3FF), Palette.yellow],
+        finaleTitle: "Treasure found!",
         stickers: Sticker.set("ocean", [
             ("🐚", "Shiny Shell", .common), ("🦀", "Snappy Crab", .common), ("🐢", "Turtle Pal", .common),
             ("🐬", "Dolphin Flip", .rare), ("🐙", "Octo Hugs", .rare), ("🐳", "Whale King", .legendary),
@@ -42,10 +75,11 @@ struct Theme: Identifiable, Equatable {
     )
 
     static let dino = Theme(
-        id: "dino", name: "Dino Stomp", tagline: "Make the volcano erupt!",
-        hero: "🦖", goal: "🌋", floaters: ["🌿", "🍃", "🦴", "🌴", "🥚"],
-        colors: [Color(hex: 0x56AB2F), Color(hex: 0x2F6B1F), Color(hex: 0x3D1F0B)],
-        accent: Color(hex: 0xFF7A18), finaleTitle: "KA-BOOM! ROAR!",
+        id: "dino", name: "Dino Stomp", tagline: "Make the volcano erupt!", costume: .dinoHood,
+        bgTop: Color(hex: 0x1E3B1A), bgBottom: Color(hex: 0x10230D),
+        primary: Palette.green, primaryLip: Palette.greenLip, primaryLight: Color(hex: 0xA6F04A), buttonText: .white,
+        shapeColors: [Palette.green, Palette.orange, Color(hex: 0xA6F04A)],
+        finaleTitle: "Ka-boom! Roar!",
         stickers: Sticker.set("dino", [
             ("🥚", "Dino Egg", .common), ("🦴", "Big Bone", .common), ("🌴", "Palm Snack", .common),
             ("🦕", "Long Neck", .rare), ("🦣", "Fuzzy Mammoth", .rare), ("🐉", "Dragon Legend", .legendary),
@@ -53,10 +87,11 @@ struct Theme: Identifiable, Equatable {
     )
 
     static let rainbow = Theme(
-        id: "rainbow", name: "Unicorn Magic", tagline: "Make a magic rainbow appear!",
-        hero: "🦄", goal: "🌈", floaters: ["💖", "✨", "🌸", "🦋", "🍭"],
-        colors: [Color(hex: 0xFF9A9E), Color(hex: 0xC471F5), Color(hex: 0x6A3093)],
-        accent: Color(hex: 0xFFF59D), finaleTitle: "RAINBOW MAGIC!",
+        id: "rainbow", name: "Unicorn Magic", tagline: "Make a magic rainbow appear!", costume: .unicorn,
+        bgTop: Color(hex: 0x8A4FD8), bgBottom: Color(hex: 0x3A1B6E),
+        primary: Palette.pink, primaryLip: Palette.pinkLip, primaryLight: Color(hex: 0xFFC2E8), buttonText: .white,
+        shapeColors: [Palette.pink, Palette.yellow, .white, Palette.blue],
+        finaleTitle: "Rainbow magic!",
         stickers: Sticker.set("rainbow", [
             ("🌸", "Blossom", .common), ("🧁", "Cupcake", .common), ("🍭", "Swirly Pop", .common),
             ("🦋", "Butterfly", .rare), ("👑", "Royal Crown", .rare), ("🦄", "Golden Unicorn", .legendary),
@@ -64,10 +99,11 @@ struct Theme: Identifiable, Equatable {
     )
 
     static let robot = Theme(
-        id: "robot", name: "Robot Power", tagline: "Charge up to 100%!",
-        hero: "🤖", goal: "🔋", floaters: ["⚙️", "🔩", "💡", "⚡️", "🛰️"],
-        colors: [Color(hex: 0x232526), Color(hex: 0x1D4350), Color(hex: 0x00B4DB)],
-        accent: Color(hex: 0x39FF14), finaleTitle: "FULLY CHARGED!",
+        id: "robot", name: "Robot Power", tagline: "Charge up to 100%!", costume: .robot,
+        bgTop: Color(hex: 0x1C2A31), bgBottom: Color(hex: 0x0E171B),
+        primary: Palette.orange, primaryLip: Palette.orangeLip, primaryLight: Color(hex: 0xFFC56B), buttonText: .white,
+        shapeColors: [Palette.orange, Palette.border, Palette.blue],
+        finaleTitle: "Fully charged!",
         stickers: Sticker.set("robot", [
             ("⚙️", "Gear Spin", .common), ("💡", "Bright Idea", .common), ("🔧", "Wrench", .common),
             ("🛰️", "Satellite", .rare), ("🦾", "Robo Arm", .rare), ("👾", "Pixel Legend", .legendary),
@@ -80,17 +116,25 @@ enum Rarity: String, Codable {
 
     var label: String {
         switch self {
-        case .common: return "Cool"
+        case .common: return "Cool find"
         case .rare: return "Rare!"
-        case .legendary: return "LEGENDARY!!"
+        case .legendary: return "Legendary!!"
         }
     }
 
     var color: Color {
         switch self {
-        case .common: return Color(hex: 0x7CF5FF)
-        case .rare: return Color(hex: 0xC77DFF)
-        case .legendary: return Color(hex: 0xFFD700)
+        case .common: return Palette.blue
+        case .rare: return Palette.purple
+        case .legendary: return Palette.yellow
+        }
+    }
+
+    var lip: Color {
+        switch self {
+        case .common: return Palette.blueLip
+        case .rare: return Palette.purpleLip
+        case .legendary: return Palette.yellowLip
         }
     }
 

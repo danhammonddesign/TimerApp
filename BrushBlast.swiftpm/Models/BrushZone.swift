@@ -1,4 +1,4 @@
-import Foundation
+import SwiftUI
 
 /// The eight parts of the mouth, brushed in order. Each gets 1/8 of the timer
 /// (15 seconds each with the default 2 minutes, as dentists recommend).
@@ -35,16 +35,26 @@ enum BrushZone: Int, CaseIterable, Identifiable {
         }
     }
 
-    var arrow: String {
+    /// SF Symbol shown in the speech bubble.
+    var symbol: String {
         switch self {
-        case .topFront: return "⬆️"
-        case .topLeft: return "↖️"
-        case .topRight: return "↗️"
-        case .topInside: return "🔄"
-        case .bottomFront: return "⬇️"
-        case .bottomLeft: return "↙️"
-        case .bottomRight: return "↘️"
-        case .bottomInside: return "👅"
+        case .topFront: return "arrow.up"
+        case .topLeft: return "arrow.up.left"
+        case .topRight: return "arrow.up.right"
+        case .topInside: return "arrow.uturn.down"
+        case .bottomFront: return "arrow.down"
+        case .bottomLeft: return "arrow.down.left"
+        case .bottomRight: return "arrow.down.right"
+        case .bottomInside: return "arrow.uturn.up"
+        }
+    }
+
+    /// Where the mascot looks: -1 left, 0 middle, 1 right.
+    var look: CGFloat {
+        switch section {
+        case .left: return -1
+        case .right: return 1
+        default: return 0
         }
     }
 

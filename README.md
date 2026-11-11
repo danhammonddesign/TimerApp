@@ -2,6 +2,12 @@
 
 A tooth-brushing timer for iPhone that kids actually want to watch.
 
+The look is flat and chunky: bold solid colors, big rounded type, 3D "squishy" buttons,
+a thick glossy progress bar and speech bubbles. The star is **Chompy**, an original tooth
+mascot drawn entirely in code. Chompy blinks, talks while the narrator speaks, looks toward
+the side of the mouth being brushed, scrubs with a toothbrush and wears a costume per theme
+(space helmet, snorkel mask, dino spikes, unicorn horn, robot antenna).
+
 - **5 themes** kids pick from: 🚀 Rocket Brush, 🐠 Ocean Dive, 🦖 Dino Stomp, 🦄 Unicorn Magic, 🤖 Robot Power.
   Each one has its own colors, floating background art, hero character, music loop and **its own narrator voice**.
 - **Spoken brushing coaching** made with [Kokoro TTS](https://github.com/hexgrad/kokoro) (Apache-2.0).
@@ -28,7 +34,7 @@ You need a Mac with **Xcode 15 or newer** (free on the Mac App Store), or **Swif
    (a free Apple ID works; the app then needs re-installing every 7 days. A $99/yr developer account removes that).
 4. Press ▶ Run. On the phone, the first time: *Settings → General → VPN & Device Management* → trust your developer profile.
 
-Tip for grown-ups: **long-press the theme name** at the top of the brushing screen for 1.5 s to jump to the
+Tip for grown-ups: **long-press the time** in the top-right corner of the brushing screen for 1.5 s to jump to the
 last few seconds — handy for testing the finale without brushing for 2 minutes.
 
 ## Project layout
@@ -42,7 +48,9 @@ BrushBlast.swiftpm/
   Models/BrushSession.swift  the timer engine (zones, cheers, countdown)
   Models/RewardStore.swift   sticker collection, streak, saved settings
   Audio/AudioManager.swift   narrator queue, sound effects, music + ducking, haptics
-  Views/                     Home, Brushing, Finale, Sticker Book, effects (particles, confetti, shake)
+  Views/Mascot.swift         Chompy the tooth mascot + costumes
+  Views/Design.swift         colors, chunky buttons, progress bar, speech bubble, background, confetti
+  Views/                     Home, Brushing, Finale, Sticker Book screens
   Resources/Audio/           all generated sounds (voice_*.m4a, sfx_*.wav, music_*.wav)
 tools/
   voice_lines.json           every narrator line + which Kokoro voice each theme uses
