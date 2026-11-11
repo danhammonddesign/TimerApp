@@ -96,7 +96,7 @@ struct TileRevealTimer: View {
             .frame(width: boardW, height: boardH)
             .position(x: geo.size.width / 2, y: geo.size.height / 2)
             .onChange(of: ends.filter { $0 <= session.elapsed }.count) {
-                AudioManager.shared.play(.flip, volume: 0.6)
+                AudioManager.shared.playQuiet(.flip, volume: 0.15)
                 Haptics.tap()
             }
         }

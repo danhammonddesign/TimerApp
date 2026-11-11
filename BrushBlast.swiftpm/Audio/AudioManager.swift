@@ -12,7 +12,7 @@ final class AudioManager: NSObject, ObservableObject, AVAudioPlayerDelegate {
         case beep = "sfx_beep", beepFinal = "sfx_beep_final", whoosh = "sfx_whoosh"
         case boom = "sfx_boom", rattle = "sfx_rattle", pop = "sfx_pop"
         case fanfare = "sfx_fanfare", star = "sfx_star"
-        case clack = "sfx_clack", flip = "sfx_flip"
+        case clack = "sfx_clack", flip = "sfx_flip", zone = "sfx_zone"
     }
 
     var voiceEnabled = true
@@ -49,6 +49,12 @@ final class AudioManager: NSObject, ObservableObject, AVAudioPlayerDelegate {
         player.volume = volume
         player.currentTime = 0
         player.play()
+    }
+
+    /// For background effects during brushing (marbles, tiles, zone blips): always quiet,
+    /// and quieter still while the narrator is talking so the instructions stay clear.
+    func playQuiet(_ sfx: SFX, volume: Float) {
+        play(sfx, volume: isSpeaking ? volume * 0.35 : volume)
     }
 
     // MARK: Narrator

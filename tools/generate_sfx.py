@@ -178,6 +178,10 @@ def sfx():
     snap = osc(note(88), 0.08) * env(int(0.08 * SR), 0.0005, 0.02)
     save("sfx_flip", mix((0, swish), (0.12, snap)))
 
+    # Zone finished: one very short, soft blip (kept quiet so it never competes with the narrator)
+    d = 0.16
+    save("sfx_zone", (osc(note(88), d) + 0.3 * osc(note(100), d)) * env(int(d * SR), 0.004, 0.045), peak=0.5)
+
     # Star collected (each finished zone)
     save("sfx_star", mix((0, bell(note(88), 0.4, 0.15)), (0.06, bell(note(95), 0.6, 0.25))))
 

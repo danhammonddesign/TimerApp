@@ -104,8 +104,7 @@ final class BrushSession: ObservableObject {
         if newZoneIndex != zone.rawValue, let newZone = BrushZone(rawValue: newZoneIndex) {
             zone = newZone
             zoneCelebration += 1
-            audio.play(.chime)
-            audio.play(.star, volume: 0.6)
+            audio.playQuiet(.zone, volume: 0.3)
             Haptics.bump()
             if zoneLength < 9 {
                 audio.sayNow(theme: theme.id, line: newZone.voiceKey)   // never fall behind the timer

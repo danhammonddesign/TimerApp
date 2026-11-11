@@ -48,7 +48,7 @@ struct PlinkoBoard: View {
             }
             .frame(width: geo.size.width, height: geo.size.height)
             .onChange(of: model.landed(at: session.elapsed)) {
-                AudioManager.shared.play(.clack, volume: 0.25)
+                AudioManager.shared.playQuiet(.clack, volume: 0.06)
             }
         }
     }
