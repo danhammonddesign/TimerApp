@@ -8,6 +8,8 @@ mascot drawn entirely in code. Chompy blinks, talks while the narrator speaks, l
 the side of the mouth being brushed, scrubs with a toothbrush and wears a costume per theme
 (space helmet, snorkel mask, dino spikes, unicorn horn, robot antenna).
 
+![Chompy in all five costumes](chompy-preview.png)
+
 - **5 themes** kids pick from: 🚀 Rocket Brush, 🐠 Ocean Dive, 🦖 Dino Stomp, 🦄 Unicorn Magic, 🤖 Robot Power.
   Each one has its own colors, floating background art, hero character, music loop and **its own narrator voice**.
 - **Spoken brushing coaching** made with [Kokoro TTS](https://github.com/hexgrad/kokoro) (Apache-2.0).
