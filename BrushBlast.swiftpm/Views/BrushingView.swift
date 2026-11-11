@@ -31,7 +31,7 @@ struct BrushingView: View {
                     .layoutPriority(1)
                 Spacer(minLength: 0)
                 MouthMap(zone: session.zone, theme: theme)
-                    .frame(height: 118)
+                    .frame(height: 150)
                 Button("Pause") {
                     AudioManager.shared.play(.tap)
                     session.pause()
@@ -253,115 +253,218 @@ struct TimePill: View {
 
 // MARK: - Mouth map showing where to brush
 
+/// A big open cartoon mouth seen from the front: glossy lips, a row of teeth along
+/// the top and bottom, tongue and throat. The teeth to brush light up in the theme color
+/// and a toothbrush scrubs over them.
 struct MouthMap: View {
     let zone: BrushZone
     let theme: Theme
 
-    private var teethPerArch: Int { 8 }
+    private var teethPerRow: Int { 10 }
+
+    // flat mouth colors
+    private static let lip = Color(hex: 0xFF6F96)
+    private static let lipShade = Color(hex: 0xD94F78)
+    private static let inside = Color(hex: 0x9E2342)
+    private static let throat = Color(hex: 0x5C0F25)
+    private static let tongue = Color(hex: 0xFF8FA8)
+    private static let tongueShade = Color(hex: 0xE86F8C)
 
     var body: some View {
         GeometryReader { geo in
             let w = geo.size.width, h = geo.size.height
-            let rx = w * 0.38, ry = h * 0.30
-            let topCenter = CGPoint(x: w / 2, y: h * 0.47)
-            let bottomCenter = CGPoint(x: w / 2, y: h * 0.53)
+            let outerH = h * 0.92
+            let outer = CGSize(width: min(w * 0.9, outerH * 1.75), height: outerH)
+            let lipThickness = h * 0.11
+            let inner = CGSize(width: outer.width - lipThickness * 2, height: outer.height - lipThickness * 2)
+            let c = CGPoint(x: w / 2, y: h / 2)
+            let layout = TeethLayout(count: teethPerRow, inner: inner)
 
             ZStack {
-                // card
-                RoundedRectangle(cornerRadius: 24, style: .continuous)
-                    .fill(Color.black.opacity(0.25))
-                    .overlay(RoundedRectangle(cornerRadius: 24, style: .continuous).stroke(Color.white.opacity(0.12), lineWidth: 2.5))
+                // lips with a chunky darker edge underneath
+                Ellipse().fill(Self.lipShade)
+                    .frame(width: outer.width, height: outer.height)
+                    .position(x: c.x, y: c.y + 5)
+                Ellipse().fill(Self.lip)
+                    .frame(width: outer.width, height: outer.height)
+                    .position(c)
 
-                // mouth
-                Capsule()
-                    .fill(Color(hex: 0x8C1D33))
-                    .overlay(Capsule().stroke(Color(hex: 0xFF8FAB), lineWidth: 8))
-                    .padding(.horizontal, 12)
-                    .padding(.vertical, 16)
-
-                if zone == .bottomInside {
-                    Ellipse().fill(Palette.tongue).frame(width: 70, height: 40).position(x: w / 2, y: h * 0.62)
+                // inside of the mouth: throat, little dangly uvula, tongue
+                ZStack {
+                    Ellipse().fill(Self.inside)
+                    Ellipse().fill(Self.throat)
+                        .frame(width: inner.width * 0.42, height: inner.height * 0.5)
+                        .offset(y: -inner.height * 0.02)
+                    Capsule().fill(Self.inside)
+                        .frame(width: inner.width * 0.035, height: inner.height * 0.2)
+                        .offset(y: -inner.height * 0.2)
+                    tongueView(inner: inner)
                 }
+                .frame(width: inner.width, height: inner.height)
+                .clipShape(Ellipse())
+                .position(c)
 
-                ForEach(0..<teethPerArch, id: \.self) { i in
-                    tooth(isTop: true, index: i)
-                        .position(point(i, center: topCenter, rx: rx, ry: ry, top: true))
-                    tooth(isTop: false, index: i)
-                        .position(point(i, center: bottomCenter, rx: rx, ry: ry, top: false))
+                // glossy shine on the lips
+                lipShine(at: 238, length: 0.22, opacity: 0.5, center: c, outer: outer, lip: lipThickness)
+                lipShine(at: 60, length: 0.14, opacity: 0.35, center: c, outer: outer, lip: lipThickness)
+
+                // teeth
+                ForEach(0..<teethPerRow, id: \.self) { i in
+                    toothView(top: true, index: i, center: c, inner: inner, layout: layout)
+                    toothView(top: false, index: i, center: c, inner: inner, layout: layout)
                 }
 
                 // the toothbrush scrubs back and forth over the active spot
                 TimelineView(.animation) { tl in
                     let t = tl.date.timeIntervalSinceReferenceDate
                     FlatToothbrush(handle: theme.primary)
-                        .frame(width: 18, height: 70)
-                        .rotationEffect(.degrees(zone.isTop ? 70 : 110))
-                        .offset(x: sin(t * 14) * 12, y: cos(t * 7) * 3)
+                        .frame(width: h * 0.13, height: h * 0.5)
+                        .rotationEffect(.degrees(brushTilt))
+                        .offset(x: sin(t * 14) * 10, y: cos(t * 7) * 3)
                 }
-                .frame(width: 80, height: 80)
-                .position(brushPoint(w: w, topCenter: topCenter, bottomCenter: bottomCenter, rx: rx, ry: ry))
+                .frame(width: h * 0.6, height: h * 0.6)
+                .position(brushPoint(center: c, inner: inner, layout: layout))
                 .animation(.spring(response: 0.6, dampingFraction: 0.6), value: zone)
             }
         }
     }
 
+    // MARK: Pieces
+
+    private func tongueView(inner: CGSize) -> some View {
+        let glow = zone == .bottomInside
+        return TimelineView(.animation(minimumInterval: 1.0 / 30.0, paused: !glow)) { tl in
+            let t = tl.date.timeIntervalSinceReferenceDate
+            ZStack {
+                Ellipse().fill(Self.tongueShade).offset(y: 4)
+                Ellipse().fill(glow ? theme.primaryLight : Self.tongue)
+                Capsule().fill(Color.black.opacity(0.08))
+                    .frame(width: 3, height: inner.height * 0.18)
+                    .offset(y: -inner.height * 0.04)
+                Capsule().fill(Color.white.opacity(0.35))
+                    .frame(width: inner.width * 0.08, height: inner.height * 0.05)
+                    .offset(x: inner.width * 0.1, y: -inner.height * 0.06)
+            }
+            .frame(width: inner.width * 0.5, height: inner.height * 0.52)
+            .scaleEffect(glow ? 1 + 0.03 * sin(t * 8) : 1)
+        }
+        .offset(y: inner.height * 0.3)
+    }
+
+    private func lipShine(at degrees: Double, length: CGFloat, opacity: Double,
+                          center: CGPoint, outer: CGSize, lip: CGFloat) -> some View {
+        let a = degrees * .pi / 180
+        let rx = outer.width / 2 - lip / 2, ry = outer.height / 2 - lip / 2
+        let point = CGPoint(x: center.x + cos(a) * rx, y: center.y + sin(a) * ry)
+        let tangent = Angle(radians: atan2(cos(a) * ry, -sin(a) * rx))
+        return Capsule().fill(Color.white.opacity(opacity))
+            .frame(width: outer.width * length, height: lip * 0.3)
+            .rotationEffect(tangent)
+            .position(point)
+    }
+
     private func isActive(top: Bool, index: Int) -> Bool {
         guard zone.isTop == top else { return false }
-        guard let section = zone.section else { return true }   // inside: whole arch
+        guard let section = zone.section else { return true }   // inside: whole row
         switch section {
-        case .left: return index <= 1
-        case .front: return (2...5).contains(index)
-        case .right: return index >= 6
+        case .left: return index <= 2
+        case .front: return (3...6).contains(index)
+        case .right: return index >= 7
         }
     }
 
-    private func tooth(isTop: Bool, index: Int) -> some View {
-        let active = isActive(top: isTop, index: index)
+    private func onEllipse(_ a: Double, center: CGPoint, inner: CGSize, scale: CGFloat) -> CGPoint {
+        CGPoint(x: center.x + cos(a) * inner.width / 2 * scale,
+                y: center.y + sin(a) * inner.height / 2 * scale)
+    }
+
+    private func toothView(top: Bool, index: Int, center: CGPoint, inner: CGSize, layout: TeethLayout) -> some View {
+        let a = top ? layout.topAngles[index] : layout.bottomAngles[index]
+        let active = isActive(top: top, index: index)
         let inside = active && zone.section == nil
+        // turn each tooth so its root points out toward the lips
+        let nx = cos(a) / (inner.width / 2), ny = sin(a) / (inner.height / 2)
+        let rotation = Angle(radians: atan2(ny, nx) + .pi / 2)
+        let front = (3...6).contains(index)
+        let size = CGSize(width: layout.toothWidth, height: layout.toothWidth * (front ? 1.2 : 1.0))
+        let corner = size.width * 0.3
+
         return TimelineView(.animation(minimumInterval: 1.0 / 30.0, paused: !active)) { tl in
             let t = tl.date.timeIntervalSinceReferenceDate
             ZStack {
-                RoundedRectangle(cornerRadius: 8, style: .continuous)
+                RoundedRectangle(cornerRadius: corner, style: .continuous)
                     .fill(active ? theme.primaryLip : Palette.toothShade)
                     .offset(y: 3)
-                RoundedRectangle(cornerRadius: 8, style: .continuous)
+                RoundedRectangle(cornerRadius: corner, style: .continuous)
                     .fill(active ? theme.primary : Color.white)
                 if inside {
-                    RoundedRectangle(cornerRadius: 8, style: .continuous)
-                        .stroke(Color.white, style: StrokeStyle(lineWidth: 2.5, dash: [4, 3]))
+                    RoundedRectangle(cornerRadius: corner, style: .continuous)
+                        .stroke(Color.white, style: StrokeStyle(lineWidth: 2, dash: [3, 3]))
                 }
             }
-            .frame(width: 26, height: 26)
-            .scaleEffect(active ? 1.1 + 0.05 * sin(t * 9 + Double(index)) : 1)
+            .frame(width: size.width, height: size.height)
+            .scaleEffect(active ? 1.08 + 0.05 * sin(t * 9 + Double(index)) : 1)
         }
-        .frame(width: 32, height: 32)
+        .rotationEffect(rotation)
+        .position(onEllipse(a, center: center, inner: inner, scale: TeethLayout.ring))
     }
 
-    private func angle(_ i: Int, top: Bool) -> Double {
-        let f = Double(i) / Double(teethPerArch - 1)
-        // top arch is an upside-down U, bottom arch a U
-        return top ? (.pi * (1.14 + 0.72 * f)) : (.pi * (0.86 - 0.72 * f))
-    }
-
-    private func point(_ i: Int, center: CGPoint, rx: CGFloat, ry: CGFloat, top: Bool) -> CGPoint {
-        let a = angle(i, top: top)
-        return CGPoint(x: center.x + cos(a) * rx, y: center.y + sin(a) * ry)
-    }
-
-    private func brushPoint(w: CGFloat, topCenter: CGPoint, bottomCenter: CGPoint, rx: CGFloat, ry: CGFloat) -> CGPoint {
-        let index: Int
+    private var brushTilt: Double {
         switch zone.section {
-        case .left: index = 1
-        case .right: index = 6
-        case .front, .none: index = 3
+        case .left: return zone.isTop ? 45 : 135
+        case .right: return zone.isTop ? -45 : -135
+        default: return 90
         }
-        let center = zone.isTop ? topCenter : bottomCenter
-        var p = point(index, center: center, rx: rx, ry: ry, top: zone.isTop)
-        if zone.section == .front || zone.section == nil { p.x += w * 0.04 }
-        // sit just outside the teeth (or inside, for the "inside" zones)
-        let push: CGFloat = zone.section == nil ? -30 : 26
-        p.y += zone.isTop ? -push : push
-        return p
+    }
+
+    private func brushPoint(center: CGPoint, inner: CGSize, layout: TeethLayout) -> CGPoint {
+        let angles = zone.isTop ? layout.topAngles : layout.bottomAngles
+        let a: Double
+        switch zone.section {
+        case .left: a = angles[1]
+        case .right: a = angles[angles.count - 2]
+        case .front, .none: a = zone.isTop ? -.pi / 2 : .pi / 2
+        }
+        // outside zones: over the lips; inside zones: in toward the middle of the mouth
+        let scale: CGFloat = zone.section == nil ? 0.45 : 1.15
+        return onEllipse(a, center: center, inner: inner, scale: scale)
+    }
+}
+
+/// Spreads the teeth evenly (by distance, not angle) around each half of the mouth.
+struct TeethLayout {
+    static let ring: CGFloat = 0.84     // how far out from the center the teeth sit
+
+    let topAngles: [Double]
+    let bottomAngles: [Double]
+    let toothWidth: CGFloat
+
+    init(count: Int, inner: CGSize) {
+        let rx = Double(inner.width / 2 * Self.ring), ry = Double(inner.height / 2 * Self.ring)
+        let (top, length) = Self.evenAngles(count: count, from: .pi, to: 2 * .pi, rx: rx, ry: ry)
+        let (bottom, _) = Self.evenAngles(count: count, from: .pi, to: 0, rx: rx, ry: ry)
+        topAngles = top
+        bottomAngles = bottom
+        toothWidth = CGFloat(length / Double(count)) * 0.9
+    }
+
+    private static func evenAngles(count: Int, from a0: Double, to a1: Double, rx: Double, ry: Double) -> ([Double], Double) {
+        let steps = 240
+        var lengths: [Double] = [0]
+        var prev = (x: cos(a0) * rx, y: sin(a0) * ry)
+        for s in 1...steps {
+            let a = a0 + (a1 - a0) * Double(s) / Double(steps)
+            let p = (x: cos(a) * rx, y: sin(a) * ry)
+            lengths.append(lengths[lengths.count - 1] + hypot(p.x - prev.x, p.y - prev.y))
+            prev = p
+        }
+        let total = lengths[lengths.count - 1]
+        let angles = (0..<count).map { k -> Double in
+            let target = total * (Double(k) + 0.5) / Double(count)
+            let i = lengths.firstIndex { $0 >= target } ?? steps
+            return a0 + (a1 - a0) * Double(i) / Double(steps)
+        }
+        return (angles, total)
     }
 }
 
