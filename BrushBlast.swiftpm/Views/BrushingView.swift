@@ -60,7 +60,7 @@ struct BrushingView: View {
         .animation(.spring(response: 0.35, dampingFraction: 0.55), value: session.countdown)
         .onAppear {
             // a new surprise each time: which pet is hidden / which jar shape
-            pet = theme.timer == .sandJar ? Pet.allCases.randomElement()! : [Pet.cat, .dog].randomElement()!
+            pet = theme.timer == .sandJar ? (theme.jarPets.randomElement() ?? .cat) : ([Pet.cat, .dog].randomElement() ?? .cat)
             UIApplication.shared.isIdleTimerDisabled = true      // keep the screen on while brushing
             AudioManager.shared.voiceEnabled = settings.voiceOn
             AudioManager.shared.musicEnabled = settings.musicOn
@@ -114,7 +114,7 @@ struct BrushingView: View {
                 .layoutPriority(1)
         case .tiles:
             sideBubble
-            TileRevealTimer(session: session, theme: theme, pet: pet == .shark ? .cat : pet, seed: tileSeed)
+            TileRevealTimer(session: session, theme: theme, pet: pet == .dog ? .dog : .cat, seed: tileSeed)
                 .overlay(alignment: .bottom) { timePill }
                 .padding(.bottom, 26)
                 .layoutPriority(1)

@@ -16,6 +16,8 @@ final class AudioManager: NSObject, ObservableObject, AVAudioPlayerDelegate {
     }
 
     var voiceEnabled = true
+    /// Narrator speed. Short timers talk a little faster so every zone still gets its line.
+    var voiceRate: Float = 1
     var musicEnabled = true
 
     private var sfxPlayers: [SFX: [AVAudioPlayer]] = [:]
@@ -82,6 +84,8 @@ final class AudioManager: NSObject, ObservableObject, AVAudioPlayerDelegate {
         let next = voiceQueue.removeFirst()
         guard let player = makePlayer(next.name, ext: "m4a") else { playNextVoice(); return }
         player.delegate = self
+        player.enableRate = true
+        player.rate = voiceRate
         voicePlayer = player
         musicPlayer?.setVolume(duckedVolume, fadeDuration: 0.2)
         isSpeaking = player.play()

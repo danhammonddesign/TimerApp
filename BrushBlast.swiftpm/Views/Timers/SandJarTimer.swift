@@ -62,7 +62,7 @@ struct SandJarTimer: View {
 
     /// Keep the jar's proportions and leave room above it for the falling sand.
     private func jarFrame(in size: CGSize) -> CGRect {
-        let aspect: CGFloat = pet == .shark ? 1.35 : 0.85
+        let aspect: CGFloat = pet == .shark ? 1.35 : (pet == .crab ? 1.3 : 0.85)
         let top: CGFloat = 26
         let availH = size.height - top - 6
         var w = min(size.width, availH * aspect)

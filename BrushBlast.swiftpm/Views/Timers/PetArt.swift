@@ -1,6 +1,6 @@
 import SwiftUI
 
-enum Pet: CaseIterable { case cat, dog, shark }
+enum Pet: CaseIterable { case cat, dog, shark, crab }
 
 /// Flat, cute pet faces used by the Secret Picture and Sand Art timers.
 struct PetPicture: View {
@@ -161,6 +161,17 @@ struct PetJarShape: Shape {
                 .union(ellipse(0.2, 0.06, 0.8, 0.58))
                 .union(ellipse(0.04, 0.1, 0.3, 0.5))
                 .union(ellipse(0.7, 0.1, 0.96, 0.5))
+        case .crab:
+            // round body, two big claws (each with a pincer notch), eye stalks and little legs
+            let leftClaw = ellipse(0.01, 0.06, 0.27, 0.44).subtracting(poly([(0.14, 0.26), (0.09, 0.0), (0.2, 0.0)]))
+            let rightClaw = ellipse(0.73, 0.06, 0.99, 0.44).subtracting(poly([(0.86, 0.26), (0.8, 0.0), (0.91, 0.0)]))
+            return ellipse(0.2, 0.4, 0.8, 1.0)
+                .union(leftClaw).union(rightClaw)
+                .union(poly([(0.26, 0.66), (0.1, 0.42), (0.2, 0.36), (0.34, 0.54)]))
+                .union(poly([(0.74, 0.66), (0.9, 0.42), (0.8, 0.36), (0.66, 0.54)]))
+                .union(ellipse(0.37, 0.22, 0.47, 0.52)).union(ellipse(0.53, 0.22, 0.63, 0.52))
+                .union(ellipse(0.07, 0.68, 0.27, 0.78)).union(ellipse(0.73, 0.68, 0.93, 0.78))
+                .union(ellipse(0.1, 0.82, 0.3, 0.92)).union(ellipse(0.7, 0.82, 0.9, 0.92))
         case .shark:
             return ellipse(0.02, 0.3, 0.8, 0.88)
                 .union(poly([(0.34, 0.36), (0.5, 0.02), (0.6, 0.36)]))
@@ -191,6 +202,19 @@ struct PetJarFace: View {
                         .stroke(Palette.ink, style: StrokeStyle(lineWidth: 3, lineCap: .round))
                         .frame(width: eye * 1.4, height: eye * 1.4)
                         .position(x: w * 0.5, y: h * 0.42)
+                case .crab:
+                    ForEach([0.42, 0.58], id: \.self) { x in
+                        eyeView(eye * 0.8).position(x: w * CGFloat(x), y: h * 0.31)
+                    }
+                    Circle().trim(from: 0, to: 0.5)
+                        .stroke(Palette.ink, style: StrokeStyle(lineWidth: 3, lineCap: .round))
+                        .frame(width: eye * 2.2, height: eye * 2.2)
+                        .position(x: w * 0.5, y: h * 0.64)
+                    ForEach([0.36, 0.64], id: \.self) { x in
+                        Ellipse().fill(Palette.pink.opacity(0.7))
+                            .frame(width: eye * 1.2, height: eye * 0.7)
+                            .position(x: w * CGFloat(x), y: h * 0.68)
+                    }
                 case .shark:
                     eyeView(eye).position(x: w * 0.18, y: h * 0.5)
                     Circle().trim(from: 0.05, to: 0.45)

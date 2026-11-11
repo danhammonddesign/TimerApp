@@ -47,6 +47,8 @@ struct Theme: Identifiable, Equatable {
     let finaleTitle: String
     let stickers: [Sticker]
     var timer: TimerStyle = .ring
+    /// For sand-jar timers: which jar shapes can show up.
+    var jarPets: [Pet] = []
 
     static func == (lhs: Theme, rhs: Theme) -> Bool { lhs.id == rhs.id }
 
@@ -77,7 +79,8 @@ struct Theme: Identifiable, Equatable {
             ("⏳", "Hourglass", .common), ("🌵", "Cactus", .common), ("🐪", "Camel", .common),
             ("🐱", "Kitty Jar", .rare), ("🐶", "Puppy Jar", .rare), ("🦈", "Golden Shark", .legendary),
         ]),
-        timer: .sandJar
+        timer: .sandJar,
+        jarPets: [.cat, .dog, .shark]
     )
 
     static let tiles = Theme(
@@ -106,15 +109,17 @@ struct Theme: Identifiable, Equatable {
     )
 
     static let ocean = Theme(
-        id: "ocean", name: "Ocean Dive", tagline: "Swim to the hidden treasure!", costume: .snorkel,
+        id: "ocean", name: "Ocean Dive", tagline: "Fill the crab with rainbow sand!", costume: .snorkel,
         bgTop: Color(hex: 0x0C6FA8), bgBottom: Color(hex: 0x073A63),
         primary: Palette.yellow, primaryLip: Palette.yellowLip, primaryLight: Color(hex: 0xFFE46B), buttonText: Color(hex: 0x5A3D00),
         shapeColors: [.white, Color(hex: 0x6FE3FF), Palette.yellow],
-        finaleTitle: "Treasure found!",
+        finaleTitle: "Crab full!",
         stickers: Sticker.set("ocean", [
             ("🐚", "Shiny Shell", .common), ("🦀", "Snappy Crab", .common), ("🐢", "Turtle Pal", .common),
             ("🐬", "Dolphin Flip", .rare), ("🐙", "Octo Hugs", .rare), ("🐳", "Whale King", .legendary),
-        ])
+        ]),
+        timer: .sandJar,
+        jarPets: [.crab]
     )
 
     static let dino = Theme(

@@ -13,7 +13,16 @@ struct HomeView: View {
         self.onStart = onStart
     }
 
-    private static let durations: [Double] = [60, 120, 180]
+    private struct DurationOption: Identifiable {
+        let label: String
+        let seconds: Double
+        var id: Double { seconds }
+    }
+    private static let durations = [
+        DurationOption(label: "30 sec", seconds: 30),
+        DurationOption(label: "1 min", seconds: 60),
+        DurationOption(label: "90 sec", seconds: 90),
+    ]
 
     var body: some View {
         let theme = settings.theme
@@ -115,9 +124,10 @@ struct HomeView: View {
 
     private var durationPicker: some View {
         HStack(spacing: 10) {
-            ForEach(Self.durations, id: \.self) { seconds in
+            ForEach(Self.durations) { option in
+                let seconds = option.seconds
                 let selected = settings.duration == seconds
-                Button("\(Int(seconds / 60)) min") {
+                Button(option.label) {
                     AudioManager.shared.play(.tap)
                     settings.duration = seconds
                 }
@@ -159,8 +169,8 @@ struct ThemeTile: View {
     var body: some View {
         let shape = RoundedRectangle(cornerRadius: 20, style: .continuous)
         VStack(spacing: 6) {
-            Mascot(costume: theme.costume, size: 70)
-                .frame(height: 84)
+            ThemeIcon(theme: theme)
+                .frame(width: 92, height: 84)
             Text(theme.name)
                 .font(.system(size: 15, weight: .heavy, design: .rounded))
                 .foregroundStyle(.white)

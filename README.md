@@ -16,11 +16,14 @@ the side of the mouth being brushed, scrubs with a toothbrush and wears a costum
 
 <img src="new-timers-preview.png" width="700" alt="Marble, sand and tile timers">
 
+<img src="update-preview.png" width="700" alt="Home screen, crab jar and tile board">
+
 - **8 themes** kids pick from: 🔴 Marble Drop, 🏜️ Sand Art, 🧩 Secret Picture, 🚀 Rocket Brush, 🐠 Ocean Dive,
   🦖 Dino Stomp, 🦄 Unicorn Magic, 🤖 Robot Power.
 - **Each new theme has its own kind of timer:**
   - *Marble Drop* — a plinko board: marbles bounce down the pegs and pile up; the board is completely full the moment time runs out.
   - *Sand Art* — rainbow sand pours into a jar shaped like a cat, puppy or shark (random each time). Every brushing zone adds a new color layer.
+  - *Ocean Dive* — the same sand timer, in a crab-shaped jar.
   - *Secret Picture* — a 5×6 grid of tiles; every few seconds one wobbles and flips away. When time's up, a cute cat or puppy is revealed.
   - The other themes use the big countdown ring with Chompy inside.
   Each one has its own colors, floating background art, hero character, music loop and **its own narrator voice**.
@@ -28,7 +31,7 @@ the side of the mouth being brushed, scrubs with a toothbrush and wears a costum
   The mouth is split into 8 zones (top front → top left → top right → top insides → bottom front → …).
   At each zone the narrator says where to brush ("Rocket over to the top teeth on the left side!"),
   a mouth map lights up the right teeth, and a little 🪥 scrubs there. There are cheers in between too.
-- **Timer**: 1, 2 or 3 minutes (2 is what dentists recommend). The hero flies around a glowing ring
+- **Timer**: 30 seconds, 1 minute or 90 seconds (the narrator talks a little faster on the short ones). The hero flies around a glowing ring
   toward its goal (🚀 → 🪐, 🦖 → 🌋, 🤖 → 🔋 …). Big 5-4-3-2-1 countdown at the end.
 - **The payoff**: white flash + screen shake + explosion + confetti and emoji fireworks, the goal
   blows up, the narrator celebrates, then a **mystery gift** drops in. Tap it → it rattles → POP →

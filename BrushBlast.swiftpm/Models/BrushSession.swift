@@ -41,7 +41,9 @@ final class BrushSession: ObservableObject {
     func start() {
         audio.startMusic(theme: theme.id)
         audio.play(.whoosh)
-        audio.say(theme: theme.id, line: "intro")
+        // Short timers: skip the intro and talk a bit faster so each zone's line fits.
+        audio.voiceRate = zoneLength < 5 ? 1.3 : (zoneLength < 9 ? 1.1 : 1)
+        if zoneLength >= 9 { audio.say(theme: theme.id, line: "intro") }
         audio.say(theme: theme.id, line: zone.voiceKey)
         resume()
     }
@@ -74,6 +76,7 @@ final class BrushSession: ObservableObject {
     func stop() {
         timer?.invalidate()
         timer = nil
+        audio.voiceRate = 1
         audio.stopAll()
     }
 
@@ -104,12 +107,16 @@ final class BrushSession: ObservableObject {
             audio.play(.chime)
             audio.play(.star, volume: 0.6)
             Haptics.bump()
-            audio.say(theme: theme.id, line: newZone.voiceKey)
+            if zoneLength < 9 {
+                audio.sayNow(theme: theme.id, line: newZone.voiceKey)   // never fall behind the timer
+            } else {
+                audio.say(theme: theme.id, line: newZone.voiceKey)
+            }
         }
 
         // A cheer in the middle of some zones (only if there is time for it)
         let into = elapsed - Double(zone.rawValue) * zoneLength
-        if zoneLength >= 12, into > zoneLength * 0.55, zone.rawValue % 2 == 1,
+        if zoneLength >= 10, into > zoneLength * 0.6, zone.rawValue % 2 == 1,
            !cheeredZones.contains(zone.rawValue), !audio.isSpeaking, remaining > 8 {
             cheeredZones.insert(zone.rawValue)
             let line = cheerOrder.removeFirst()
@@ -138,6 +145,7 @@ final class BrushSession: ObservableObject {
             audio.play(.beepFinal)
             audio.stopMusic(fade: 0.3)
             audio.stopVoice()
+            audio.voiceRate = 1
             onFinish?()
         }
     }

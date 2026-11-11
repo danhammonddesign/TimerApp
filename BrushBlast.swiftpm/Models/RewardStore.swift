@@ -83,7 +83,7 @@ final class AppSettings: ObservableObject {
     init() {
         theme = Theme.named(defaults.string(forKey: "themeID") ?? Theme.space.id)
         let saved = defaults.double(forKey: "durationSeconds")
-        duration = saved > 0 ? saved : 120
+        duration = [30, 60, 90].contains(saved) ? saved : 60
         musicOn = defaults.object(forKey: "musicOn") as? Bool ?? true
         voiceOn = defaults.object(forKey: "voiceOn") as? Bool ?? true
     }

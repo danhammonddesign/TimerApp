@@ -23,19 +23,19 @@
     "voice": "af_bella",
     "speed": 1.0,
     "lines": {
-      "intro": "Ahoy, ocean explorer! Let's dive in and brush!",
+      "intro": "Ahoy, ocean explorer! Let's fill the crab with rainbow sand!",
       "top_front": "Start with your top front teeth. Little circles, like bubbles!",
       "top_left": "Swim over to the top teeth on the left side!",
       "top_right": "Now paddle to the top teeth on the right side!",
       "top_inside": "Tilt your brush and clean the inside of your top teeth!",
-      "bottom_front": "You're halfway to the treasure! Now brush your bottom front teeth.",
+      "bottom_front": "The crab is half full! Now brush your bottom front teeth.",
       "bottom_left": "Dive down to the bottom teeth on the left side!",
       "bottom_right": "Now the bottom teeth on the right side. Swim, swim, swim!",
       "bottom_inside": "Final dive! Brush the inside of your bottom teeth, and tickle your tongue too!",
-      "finale": "You found the treasure! Your smile is shinier than a pearl!",
+      "finale": "The crab is full of rainbow sand! Your smile is shinier than a pearl!",
       "cheer1": "Fin-tastic brushing!",
       "cheer2": "Bubbles everywhere! Keep it up!",
-      "cheer3": "The fish are so proud of you!"
+      "cheer3": "The little crab is so proud of you!"
     }
   },
   "dino": {

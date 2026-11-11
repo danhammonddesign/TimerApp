@@ -44,23 +44,45 @@ struct TileRevealTimer: View {
 
             ZStack {
                 shape.fill(Palette.border).offset(y: 5)
+                // solid board: nothing of the picture shows between the tiles
+                shape.fill(Palette.card)
+
+                // the picture only shows through the spots whose tile has flipped over
                 PetPicture(pet: pet)
+                    .frame(width: boardW, height: boardH)
+                    .mask {
+                        TimelineView(.animation) { tl in
+                            let e = session.elapsed(at: tl.date)
+                            Canvas { context, _ in
+                                for i in 0..<(Self.cols * Self.rows) {
+                                    let f = flipFraction(i, ends: ends, at: e)
+                                    guard f > 0.5 else { continue }
+                                    // second half of the flip: the picture side swings into view
+                                    let open = CGFloat(sin((min(f, 1) - 0.5) * .pi))
+                                    let x = tile * CGFloat(i % Self.cols), y = tile * CGFloat(i / Self.cols)
+                                    let w = tile * open
+                                    context.fill(Path(CGRect(x: x + (tile - w) / 2, y: y, width: w, height: tile)),
+                                                 with: .color(.black))
+                                }
+                            }
+                        }
+                    }
                     .clipShape(shape)
 
+                // tiles that haven't flipped yet (first half of the flip: the "?" side swings away)
                 TimelineView(.animation) { tl in
                     let e = session.elapsed(at: tl.date)
                     let t = tl.date.timeIntervalSinceReferenceDate
                     ZStack(alignment: .topLeading) {
                         ForEach(0..<(Self.cols * Self.rows), id: \.self) { i in
-                            let f = (e - (ends[i] - Self.flipLength)) / Self.flipLength      // 0...1 while flipping
-                            if f < 1 {
-                                let wobbling = e > ends[i] - Self.flipLength - Self.wobbleLength && f < 0
+                            let f = flipFraction(i, ends: ends, at: e)
+                            if f < 0.5 {
+                                let wobbling = f <= 0 && e > ends[i] - Self.flipLength - Self.wobbleLength
                                 TileCover(theme: theme, index: i)
                                     .frame(width: tile - 6, height: tile - 6)
                                     .rotationEffect(.degrees(wobbling ? sin(t * 30) * 6 : 0))
                                     .scaleEffect(wobbling ? 1.06 : 1)
-                                    .rotation3DEffect(.degrees(max(f, 0) * 90), axis: (x: 0, y: 1, z: 0), perspective: 0.6)
-                                    .opacity(f > 0.95 ? 0 : 1)
+                                    .scaleEffect(x: CGFloat(cos(max(f, 0) * .pi)), y: 1)
                                     .position(x: tile * (CGFloat(i % Self.cols) + 0.5),
                                               y: tile * (CGFloat(i / Self.cols) + 0.5))
                             }
@@ -79,21 +101,29 @@ struct TileRevealTimer: View {
             }
         }
     }
+
+    /// 0 before a tile starts flipping, 0.5 when it is edge-on, 1 when its picture side is fully showing.
+    private func flipFraction(_ i: Int, ends: [Double], at e: Double) -> Double {
+        (e - (ends[i] - Self.flipLength)) / Self.flipLength
+    }
 }
 
 /// Chunky tile with a question mark, waiting to be flipped.
 struct TileCover: View {
     let theme: Theme
     let index: Int
+    var fontSize: CGFloat = 26
+    var corner: CGFloat = 12
+    var lipOffset: CGFloat = 4
 
     var body: some View {
-        let shape = RoundedRectangle(cornerRadius: 12, style: .continuous)
+        let shape = RoundedRectangle(cornerRadius: corner, style: .continuous)
         let alt = (index / TileRevealTimer.cols + index % TileRevealTimer.cols) % 2 == 0
         ZStack {
-            shape.fill(theme.primaryLip).offset(y: 4)
+            shape.fill(theme.primaryLip).offset(y: lipOffset)
             shape.fill(alt ? theme.primary : theme.primaryLight)
             Text("?")
-                .font(.system(size: 26, weight: .heavy, design: .rounded))
+                .font(.system(size: fontSize, weight: .heavy, design: .rounded))
                 .foregroundStyle(Color.white.opacity(0.9))
                 .shadow(color: theme.primaryLip, radius: 0, y: 2)
         }
