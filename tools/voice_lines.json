@@ -1,0 +1,98 @@
+{
+  "_comment": "Narration for each theme. Keys must match BrushZone.voiceKey / VoiceLine keys in the Swift code. Edit the text and re-run tools/generate_voices.py.",
+  "space": {
+    "voice": "am_puck",
+    "speed": 1.0,
+    "lines": {
+      "intro": "Welcome aboard, astronaut! Let's blast off and brush!",
+      "top_front": "First stop: your top front teeth. Brush them in tiny circles!",
+      "top_left": "Rocket over to the top teeth on the left side!",
+      "top_right": "Now zoom across to the top teeth on the right side!",
+      "top_inside": "Flip the brush and clean the inside of your top teeth!",
+      "bottom_front": "Halfway to the planet! Now brush your bottom front teeth.",
+      "bottom_left": "Fly down to the bottom teeth on the left side!",
+      "bottom_right": "Now the bottom teeth on the right side. Keep going!",
+      "bottom_inside": "Last mission! Brush the inside of your bottom teeth, and give your tongue a scrub!",
+      "finale": "Touchdown! Mission complete! Your teeth are sparkling like stars!",
+      "cheer1": "Great job, space cadet!",
+      "cheer2": "Don't forget the back teeth, way out in deep space!",
+      "cheer3": "Your teeth are shining like comets!"
+    }
+  },
+  "ocean": {
+    "voice": "af_bella",
+    "speed": 1.0,
+    "lines": {
+      "intro": "Ahoy, ocean explorer! Let's dive in and brush!",
+      "top_front": "Start with your top front teeth. Little circles, like bubbles!",
+      "top_left": "Swim over to the top teeth on the left side!",
+      "top_right": "Now paddle to the top teeth on the right side!",
+      "top_inside": "Tilt your brush and clean the inside of your top teeth!",
+      "bottom_front": "You're halfway to the treasure! Now brush your bottom front teeth.",
+      "bottom_left": "Dive down to the bottom teeth on the left side!",
+      "bottom_right": "Now the bottom teeth on the right side. Swim, swim, swim!",
+      "bottom_inside": "Final dive! Brush the inside of your bottom teeth, and tickle your tongue too!",
+      "finale": "You found the treasure! Your smile is shinier than a pearl!",
+      "cheer1": "Fin-tastic brushing!",
+      "cheer2": "Bubbles everywhere! Keep it up!",
+      "cheer3": "The fish are so proud of you!"
+    }
+  },
+  "dino": {
+    "voice": "bm_george",
+    "speed": 1.0,
+    "lines": {
+      "intro": "Roar! Welcome to Dino Land. Let's stomp those germs!",
+      "top_front": "Start with your top front teeth. Chomp chomp, brush brush!",
+      "top_left": "Stomp over to the top teeth on the left side!",
+      "top_right": "Now stomp to the top teeth on the right side!",
+      "top_inside": "Turn your brush around and clean the inside of your top teeth!",
+      "bottom_front": "Halfway to the volcano! Now brush your bottom front teeth.",
+      "bottom_left": "March down to the bottom teeth on the left side!",
+      "bottom_right": "Now the bottom teeth on the right side. Roar!",
+      "bottom_inside": "Last stomp! Brush the inside of your bottom teeth, and your tongue too!",
+      "finale": "Kaboom! The volcano erupted! You have the strongest teeth in Dino Land!",
+      "cheer1": "Dino-mite brushing!",
+      "cheer2": "Even a tee rex would be jealous of those teeth!",
+      "cheer3": "Stomp out those sugar bugs!"
+    }
+  },
+  "rainbow": {
+    "voice": "af_heart",
+    "speed": 1.0,
+    "lines": {
+      "intro": "Hello, sparkle friend! Let's make a magic rainbow smile!",
+      "top_front": "First, brush your top front teeth in little sparkly circles!",
+      "top_left": "Prance over to the top teeth on the left side!",
+      "top_right": "Now twirl to the top teeth on the right side!",
+      "top_inside": "Turn your brush and polish the inside of your top teeth!",
+      "bottom_front": "Halfway to the rainbow! Now brush your bottom front teeth.",
+      "bottom_left": "Skip down to the bottom teeth on the left side!",
+      "bottom_right": "Now the bottom teeth on the right side. So magical!",
+      "bottom_inside": "Last sparkle! Brush the inside of your bottom teeth, and give your tongue a little brush!",
+      "finale": "Ta-da! A rainbow appeared! Your smile is pure magic!",
+      "cheer1": "Sparkle, sparkle, you're doing amazing!",
+      "cheer2": "Your teeth are glittering!",
+      "cheer3": "Unicorns love clean teeth!"
+    }
+  },
+  "robot": {
+    "voice": "am_echo",
+    "speed": 1.0,
+    "lines": {
+      "intro": "Beep boop! Robot power-up starting. Activate toothbrush!",
+      "top_front": "Scanning top front teeth. Brush in little circles!",
+      "top_left": "Moving to the top teeth on the left side. Beep!",
+      "top_right": "Now the top teeth on the right side. Boop!",
+      "top_inside": "Rotate brush. Clean the inside of your top teeth!",
+      "bottom_front": "Power at fifty percent! Now brush your bottom front teeth.",
+      "bottom_left": "Moving down to the bottom teeth on the left side!",
+      "bottom_right": "Now the bottom teeth on the right side. Systems go!",
+      "bottom_inside": "Final program! Brush the inside of your bottom teeth, and scrub that tongue!",
+      "finale": "Power level: one hundred percent! Super clean teeth unlocked!",
+      "cheer1": "Excellent brushing, human!",
+      "cheer2": "Germ zapper at full power!",
+      "cheer3": "Beep beep! Your teeth are shiny!"
+    }
+  }
+}

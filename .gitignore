@@ -1,0 +1,9 @@
+.DS_Store
+.swiftpm/xcode/
+.build/
+xcuserdata/
+*.xcuserstate
+# Kokoro model files are big - download them when you want to regenerate voices
+*.onnx
+voices-*.bin
+__pycache__/
