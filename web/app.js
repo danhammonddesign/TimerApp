@@ -15,7 +15,7 @@ const THEMES = [
     bg: ["#1B2A4A", "#0F1830"], primary: P.red, lip: P.redLip, light: "#FF9A9A", text: "#FFFFFF",
     shapes: [P.red, P.yellow, P.blue, P.green], finale: "Board full!",
     stickers: S("marble", [["🎱","Eight Ball","common"],["🎯","Bullseye","common"],["🪀","Yo-yo","common"],["🔮","Crystal Orb","rare"],["🧿","Lucky Eye","rare"],["💎","Diamond Marble","legendary"]]) },
-  { id: "sand", name: "Sand Art", tagline: "Fill the jar with rainbow sand!", costume: "sunHat", timer: "sandJar", jarPets: ["cat", "bunny", "shark", "owl", "dog", "turtle", "bear", "fish"],
+  { id: "sand", name: "Sand Art", tagline: "Fill the jar with rainbow sand!", costume: "sunHat", timer: "sandJar", jarPets: ["cat", "bunny", "shark", "owl", "dog", "turtle", "bear", "fish"], mystery: true,
     bg: ["#2A1E4A", "#160F2C"], primary: P.teal, lip: P.tealLip, light: "#8FF0E6", text: "#FFFFFF",
     shapes: [P.yellow, P.pink, P.teal, P.orange], finale: "Jar full!",
     stickers: S("sand", [["⏳","Hourglass","common"],["🌵","Cactus","common"],["🐪","Camel","common"],["🐱","Kitty Jar","rare"],["🐶","Puppy Jar","rare"],["🦈","Golden Shark","legendary"]]) },
@@ -651,15 +651,16 @@ function sandSurface(ctx, x0, x1, y, phase, mound) {
 /** sand jar: `fill` is 0...1; when `live` it pours with a stream and wavy layers (one per zone) */
 function drawSandJar(ctx, pet, R, fill, t, opts = {}) {
   const A = jarAssets(pet, R.w, R.h), { pad, dpr } = A, live = !!opts.live;
+  const show = opts.show == null ? 1 : opts.show;     // 0 = only the sand is visible (mystery shape)
   const cw = A.mask.width / dpr, chh = A.mask.height / dpr, ox = R.x - pad, oy = R.y - pad;
   // shadow + glass
   const tc = A.tctx; tc.clearRect(0, 0, cw, chh);
   tc.globalCompositeOperation = "source-over"; tc.drawImage(A.mask, 0, 0, cw, chh);
   tc.globalCompositeOperation = "source-in"; tc.fillStyle = "rgba(0,0,0,0.25)"; tc.fillRect(0, 0, cw, chh);
-  ctx.drawImage(A.tmp, ox, oy + 5, cw, chh);
+  ctx.globalAlpha = show; ctx.drawImage(A.tmp, ox, oy + 5, cw, chh); ctx.globalAlpha = 1;
   tc.globalCompositeOperation = "source-over"; tc.clearRect(0, 0, cw, chh); tc.drawImage(A.mask, 0, 0, cw, chh);
   tc.globalCompositeOperation = "source-in"; tc.fillStyle = opts.glass || "rgba(255,255,255,0.1)"; tc.fillRect(0, 0, cw, chh);
-  ctx.drawImage(A.tmp, ox, oy, cw, chh);
+  ctx.globalAlpha = show; ctx.drawImage(A.tmp, ox, oy, cw, chh); ctx.globalAlpha = 1;
   // sand layers, masked to the jar
   const layers = live ? 8 : 4, cur = live ? Math.min(Math.floor(fill * 8), 7) : layers - 1;
   const streamX = R.x + R.w * (JARS[pet].mouth + (live ? 0.1 * Math.sin(t * 0.5) : 0));
@@ -686,13 +687,15 @@ function drawSandJar(ctx, pet, R, fill, t, opts = {}) {
       circ(ctx, streamX + Math.sin(g * 2.3 + t * 3) * 5, gy, 2, col);
     }
   }
-  ctx.globalAlpha = 0.92; ctx.drawImage(A.outline, ox, oy, cw, chh); ctx.globalAlpha = 1;
-  if (live) { ctx.globalAlpha = 0.4; capsule(ctx, R.x + R.w * 0.2, R.y + R.h * 0.62, 9, R.h * 0.22, "#fff", 12); ctx.globalAlpha = 1; }
-  drawJarFace(ctx, pet, R.x, R.y, R.w, R.h);
+  if (show <= 0) return;
+  ctx.globalAlpha = 0.92 * show; ctx.drawImage(A.outline, ox, oy, cw, chh);
+  if (live) { ctx.globalAlpha = 0.4 * show; capsule(ctx, R.x + R.w * 0.2, R.y + R.h * 0.62, 9, R.h * 0.22, "#fff", 12); }
+  ctx.globalAlpha = show; drawJarFace(ctx, pet, R.x, R.y, R.w, R.h); ctx.globalAlpha = 1;
 }
 function drawSandTimer(ctx, w, h, sess, t) {
   const R = jarRect(sess.pet, w, h);
-  drawSandJar(ctx, sess.pet, R, sess.progress, t, { live: true, pouring: sess.progress < 1 && !sess.paused });
+  const show = sess.theme.mystery ? Math.min(Math.max((sess.progress - 0.955) / 0.03, 0), 1) : 1;
+  drawSandJar(ctx, sess.pet, R, sess.progress, t, { live: true, pouring: sess.progress < 1 && !sess.paused, show });
   return R.y + R.h;
 }
 
@@ -1157,7 +1160,12 @@ function drawThemeIcon(ctx, w, h, theme, t) {
   if (theme.timer === "sandJar") {
     const pet = variants.current(theme), a = JARS[pet].aspect;
     let jw = w * 0.96, jh = jw / a; if (jh > h * 0.92) { jh = h * 0.92; jw = jh * a; }
-    drawSandJar(ctx, pet, { x: (w - jw) / 2, y: (h - jh) / 2, w: jw, h: jh }, 0.5, t, {}); return;
+    drawSandJar(ctx, pet, { x: (w - jw) / 2, y: (h - jh) / 2, w: jw, h: jh }, theme.mystery ? 0.35 : 0.5, t, { show: theme.mystery ? 0 : 1 });
+    if (theme.mystery) {
+      ctx.font = `900 ${h * 0.5}px Nunito, ui-rounded, system-ui, sans-serif`; ctx.textAlign = "center"; ctx.textBaseline = "middle";
+      ctx.fillStyle = "rgba(0,0,0,0.25)"; ctx.fillText("?", w / 2, h * 0.38 + 3); ctx.fillStyle = "#fff"; ctx.fillText("?", w / 2, h * 0.38);
+    }
+    return;
   }
   // tiles: 3x3, half flipped, part of the cat showing
   const S = Math.min(w, h), x = (w - S) / 2, y = (h - S) / 2, tl = S / 3, shown = [1, 3, 4, 8], pic = petPicture(variants.current(theme), S, S), dpr = pic.width / S;
@@ -1375,6 +1383,7 @@ const UI = {
   },
   tagline(th) {
     const list = variants.list(th);
+    if (th.mystery) return "Guess the animal hiding in the sand!";
     if (th.timer === "sandJar" && list.length > 1) return `Fill the ${VARIANT_NAMES[variants.current(th)].toLowerCase()} jar with rainbow sand!`;
     if (th.timer === "tiles") return `Flip the tiles to find secret pet #${variants.index(th) + 1}!`;
     if (th.timer === "coloring") return `Let's color in the ${DINOS[variants.current(th)].name}!`;
