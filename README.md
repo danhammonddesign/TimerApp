@@ -24,6 +24,7 @@ the side of the mouth being brushed, scrubs with a toothbrush and wears a costum
   - *Marble Drop* — a plinko board: marbles bounce down the pegs and pile up; the board is completely full the moment time runs out.
   - *Sand Art* — rainbow sand pours into a jar shaped like a cat, puppy or shark (random each time). Every brushing zone adds a new color layer.
   - *Ocean Dive* — the same sand timer, in a crab-shaped jar.
+  - *Rocket Brush* (web) — a rocket flies a winding route from Earth past the Moon, Mars and Jupiter to Planet Zoom; the trail behind is solid, the way ahead is dotted, and passed planets get a check.
   - *Dino Stomp* (web) — a coloring book: a crayon colors in a T. rex, triceratops, stegosaurus or long-neck, part by part, until the page is done.
   - *Secret Picture* — a 5×6 grid of tiles; every few seconds one wobbles and flips away. When time's up, a cute cat or puppy is revealed.
   - The other themes use the big countdown ring with Chompy inside.
@@ -34,7 +35,7 @@ the side of the mouth being brushed, scrubs with a toothbrush and wears a costum
   a mouth map lights up the right teeth, and a little 🪥 scrubs there. There are cheers in between too.
 - **Timer**: 30 seconds, 1 minute or 90 seconds (the narrator talks a little faster on the short ones). The hero flies around a glowing ring
   toward its goal (🚀 → 🪐, 🦖 → 🌋, 🤖 → 🔋 …). Big 5-4-3-2-1 countdown at the end.
-- **The payoff**: white flash + screen shake + explosion + confetti and emoji fireworks, the goal
+- **The payoff** (web: a slot machine — pull the lever, three reels spin; all three on the legendary icon wins the grand prize, about 1 in 5 pulls; otherwise a regular sticker): white flash + screen shake + explosion + confetti and emoji fireworks, the goal
   blows up, the narrator celebrates, then a **mystery gift** drops in. Tap it → it rattles → POP →
   a spinning sunburst reveals a **collectible sticker** (common, rare or ✨LEGENDARY✨).
 - **Sticker Book** with 30 stickers to collect (uncollected ones are mystery silhouettes) and a

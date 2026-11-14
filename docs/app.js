@@ -23,7 +23,7 @@ const THEMES = [
     bg: ["#0F3B3A", "#08201F"], primary: P.purple, lip: P.purpleLip, light: "#D8B4FF", text: "#FFFFFF",
     shapes: [P.purple, P.yellow, P.teal], finale: "Surprise!",
     stickers: S("tiles", [["🧩","Puzzle Piece","common"],["🖼️","Picture Frame","common"],["🃏","Joker Card","common"],["🐾","Paw Print","rare"],["🎀","Big Bow","rare"],["🦁","Lion Cub","legendary"]]) },
-  { id: "space", name: "Rocket Brush", tagline: "Blast off to a new planet!", costume: "helmet", timer: "ring",
+  { id: "space", name: "Rocket Brush", tagline: "Fly past the planets to Planet Zoom!", costume: "helmet", timer: "rocket",
     bg: ["#131F3A", "#241650"], primary: P.blue, lip: P.blueLip, light: "#6FE3FF", text: "#FFFFFF",
     shapes: [P.yellow, P.blue, P.purple, "#FFFFFF"], finale: "Mission complete!",
     stickers: S("space", [["🌙","Moon Buddy","common"],["⭐️","Super Star","common"],["☄️","Comet Zoom","common"],["🛸","Flying Saucer","rare"],["👽","Alien Pal","rare"],["🌌","Galaxy Swirl","legendary"]]) },
@@ -94,9 +94,11 @@ const rewards = {
   init() { if (this.last != null && this.dayNum(Date.now()) - this.last > 1) this.streak = 0; },
   get collected() { return Object.keys(this.counts).length; },
   get total() { return THEMES.reduce((a, t) => a + t.stickers.length, 0); },
-  award(theme) {
-    const missing = theme.stickers.filter(s => !this.counts[s.id]);
-    const pool = missing.length && Math.random() < 0.7 ? missing : theme.stickers;
+  award(theme, jackpot = false) {
+    const regular = theme.stickers.filter(s => s.rarity !== "legendary");
+    const missing = regular.filter(s => !this.counts[s.id]);
+    const pool = jackpot ? theme.stickers.filter(s => s.rarity === "legendary")
+      : (missing.length && Math.random() < 0.7 ? missing : regular);
     let roll = Math.random() * pool.reduce((a, s) => a + RARITY[s.rarity].weight, 0), pick = pool[0];
     for (const s of pool) { roll -= RARITY[s.rarity].weight; if (roll < 0) { pick = s; break; } }
     this.lastWasNew = !this.counts[pick.id];
@@ -1009,6 +1011,128 @@ function drawColoringTimer(ctx, w, h, sess, t) {
   return by + bh;
 }
 
+// ---- Rocket Brush: a rocket flies from Earth past planets to its destination
+const ROUTE = [
+  { name: "Earth", u: 0, kind: "earth" },
+  { name: "Moon", u: 0.25, kind: "moon" },
+  { name: "Mars", u: 0.5, kind: "mars" },
+  { name: "Jupiter", u: 0.75, kind: "jupiter" },
+  { name: "Planet Zoom", u: 1, kind: "dest" },
+];
+let routeCache = null;
+function routeModel(w, h) {
+  const key = Math.round(w) + "x" + Math.round(h);
+  if (routeCache && routeCache.key === key) return routeCache;
+  const m = Math.min(w, h), rEnd = m * 0.11, top = rEnd + 22, bottom = h - m * 0.1 - 6;
+  const cx = w / 2, amp = Math.min(w * 0.3, 120);
+  const at = u => [cx - amp * Math.cos(2 * Math.PI * u), bottom - u * (bottom - top)];
+  const N = 240, pts = [], lens = [0];
+  for (let i = 0; i <= N; i++) { pts.push(at(i / N)); if (i) lens.push(lens[i - 1] + Math.hypot(pts[i][0] - pts[i - 1][0], pts[i][1] - pts[i - 1][1])); }
+  return (routeCache = { key, pts, lens, total: lens[N], m, at, cx });
+}
+/** point + direction at a fraction of the route's length */
+function routeAt(R, f) {
+  const target = R.total * Math.min(Math.max(f, 0), 1);
+  let i = 1; while (i < R.lens.length - 1 && R.lens[i] < target) i++;
+  const u = (target - R.lens[i - 1]) / Math.max(R.lens[i] - R.lens[i - 1], 1e-6);
+  const a = R.pts[i - 1], b = R.pts[i];
+  return { x: a[0] + (b[0] - a[0]) * u, y: a[1] + (b[1] - a[1]) * u, ang: Math.atan2(b[1] - a[1], b[0] - a[0]), i };
+}
+/** route fraction (by length) where each planet sits */
+function stopFraction(R, u) { const i = Math.round(u * (R.pts.length - 1)); return R.lens[i] / R.total; }
+function drawPlanet(ctx, kind, x, y, r, t) {
+  if (kind === "earth") {
+    circ(ctx, x, y + r * 0.08, r, "#1A6FB0"); circ(ctx, x, y, r, "#2E9BEA");
+    ctx.save(); ell(ctx, x, y, r, r); ctx.clip();
+    ell(ctx, x - r * 0.35, y - r * 0.2, r * 0.45, r * 0.3, P.green, 0.4); ell(ctx, x + r * 0.4, y + r * 0.35, r * 0.4, r * 0.25, P.green, -0.3);
+    ctx.restore();
+  } else if (kind === "moon") {
+    circ(ctx, x, y + r * 0.08, r, "#9AA7B0"); circ(ctx, x, y, r, "#D5DDE2");
+    circ(ctx, x - r * 0.3, y - r * 0.25, r * 0.22, "#B6C2CA"); circ(ctx, x + r * 0.35, y + r * 0.2, r * 0.16, "#B6C2CA"); circ(ctx, x - r * 0.1, y + r * 0.45, r * 0.12, "#B6C2CA");
+  } else if (kind === "mars") {
+    circ(ctx, x, y + r * 0.08, r, "#C2410C"); circ(ctx, x, y, r, "#F26B3A");
+    circ(ctx, x + r * 0.3, y - r * 0.3, r * 0.2, "#D9542A"); circ(ctx, x - r * 0.35, y + r * 0.25, r * 0.25, "#D9542A");
+  } else if (kind === "jupiter") {
+    circ(ctx, x, y + r * 0.08, r, "#C98E55"); circ(ctx, x, y, r, "#F2C27B");
+    ctx.save(); ell(ctx, x, y, r, r); ctx.clip();
+    for (const [dy, c] of [[-0.45, "#E39A57"], [-0.05, "#E8B07A"], [0.35, "#E39A57"]]) { ctx.fillStyle = c; ctx.fillRect(x - r, y + dy * r, r * 2, r * 0.22); }
+    ell(ctx, x + r * 0.35, y + r * 0.42, r * 0.2, r * 0.12, "#D9542A");
+    ctx.restore();
+  } else {   // destination: ringed planet with a flag
+    ctx.save(); ctx.translate(x, y); ctx.rotate(-0.35);
+    ctx.lineWidth = r * 0.16; ctx.strokeStyle = "#FFE46B";
+    ctx.beginPath(); ctx.ellipse(0, 0, r * 1.65, r * 0.5, 0, Math.PI, Math.PI * 2); ctx.stroke();
+    ctx.restore();
+    circ(ctx, x, y + r * 0.08, r, P.purpleLip); circ(ctx, x, y, r, P.purple);
+    circ(ctx, x - r * 0.3, y - r * 0.3, r * 0.18, "#D8B4FF");
+    ctx.save(); ctx.translate(x, y); ctx.rotate(-0.35);
+    ctx.lineWidth = r * 0.16; ctx.strokeStyle = "#FFE46B";
+    ctx.beginPath(); ctx.ellipse(0, 0, r * 1.65, r * 0.5, 0, 0, Math.PI); ctx.stroke();
+    ctx.restore();
+    // flag on top
+    fillRR(ctx, x - 1.5, y - r * 1.75, 3, r * 0.85, 1.5, "#fff");
+    const wave = Math.sin(t * 4) * r * 0.06;
+    ctx.beginPath(); ctx.moveTo(x + 1.5, y - r * 1.75); ctx.lineTo(x + r * 0.75, y - r * 1.55 + wave); ctx.lineTo(x + 1.5, y - r * 1.35); ctx.closePath();
+    ctx.fillStyle = P.red; ctx.fill();
+  }
+}
+function drawRocket(ctx, x, y, size, ang, t, flame = true) {
+  ctx.save(); ctx.translate(x, y); ctx.rotate(ang + Math.PI / 2); ctx.scale(size / 100, size / 100);
+  if (flame) {
+    const f = 0.8 + 0.3 * Math.abs(Math.sin(t * 22));
+    tri(ctx, 0, 48 + 16 * f, 26, 34 * f, P.orange, 180); tri(ctx, 0, 46 + 10 * f, 14, 20 * f, P.yellow, 180);
+  }
+  // fins
+  ctx.fillStyle = P.redLip;
+  ctx.beginPath(); ctx.moveTo(-14, 10); ctx.lineTo(-30, 40); ctx.lineTo(-14, 38); ctx.closePath(); ctx.fill();
+  ctx.beginPath(); ctx.moveTo(14, 10); ctx.lineTo(30, 40); ctx.lineTo(14, 38); ctx.closePath(); ctx.fill();
+  // body
+  ctx.beginPath(); ctx.moveTo(0, -50); ctx.bezierCurveTo(22, -30, 20, 20, 16, 42); ctx.lineTo(-16, 42); ctx.bezierCurveTo(-20, 20, -22, -30, 0, -50); ctx.closePath();
+  ctx.fillStyle = "#fff"; ctx.fill();
+  ctx.save(); ctx.clip(); ctx.fillStyle = "#D6E2EA"; ctx.fillRect(6, -60, 30, 110);
+  ctx.fillStyle = P.red; ctx.fillRect(-30, -60, 60, 26); ctx.restore();
+  circ(ctx, 0, -6, 11, "#fff"); circ(ctx, 0, -6, 8, P.blue); circ(ctx, -3, -9, 2.5, "#fff");
+  ctx.fillStyle = P.red; ctx.beginPath(); ctx.moveTo(-4, 20); ctx.lineTo(4, 20); ctx.lineTo(3, 44); ctx.lineTo(-3, 44); ctx.closePath(); ctx.fill();
+  ctx.restore();
+}
+function drawRocketRoute(ctx, w, h, p, t, opts = {}) {
+  const R = routeModel(w, h), m = R.m, here = routeAt(R, p);
+  // stars twinkling along the way
+  for (let i = 0; i < 26; i++) { ctx.globalAlpha = 0.25 + 0.5 * Math.abs(Math.sin(t * (0.6 + hash(i) * 1.5) + i)); circ(ctx, hash(i * 3.1) * w, hash(i * 7.7) * h, 1 + hash(i * 5.3) * 1.6, "#fff"); }
+  ctx.globalAlpha = 1;
+  // the way still to go: dots
+  ctx.save(); ctx.beginPath();
+  for (let i = here.i - 1; i < R.pts.length; i++) i === here.i - 1 ? ctx.moveTo(here.x, here.y) : ctx.lineTo(R.pts[i][0], R.pts[i][1]);
+  ctx.setLineDash([1, 12]); ctx.lineCap = "round"; ctx.lineWidth = 5; ctx.strokeStyle = "rgba(255,255,255,0.55)"; ctx.stroke(); ctx.restore();
+  // the way already traveled: a thick glowing trail
+  const trail = () => { ctx.beginPath(); for (let i = 0; i < here.i; i++) i ? ctx.lineTo(R.pts[i][0], R.pts[i][1]) : ctx.moveTo(R.pts[0][0], R.pts[0][1]); ctx.lineTo(here.x, here.y); };
+  ctx.lineCap = "round"; ctx.lineJoin = "round";
+  ctx.save(); ctx.translate(0, 3); trail(); ctx.lineWidth = 9; ctx.strokeStyle = P.blueLip; ctx.stroke(); ctx.restore();
+  trail(); ctx.lineWidth = 9; ctx.strokeStyle = P.blue; ctx.stroke();
+  trail(); ctx.lineWidth = 2.5; ctx.strokeStyle = "rgba(255,255,255,0.6)"; ctx.stroke();
+  ctx.lineCap = "butt";
+  // planets along the route, with a check once the rocket has passed them
+  for (const stop of ROUTE) {
+    const [x, y] = R.at(stop.u), f = stopFraction(R, stop.u), passed = p >= f && stop.u > 0;
+    const r = stop.kind === "dest" ? m * 0.11 : stop.kind === "earth" ? m * 0.085 : m * 0.065;
+    ctx.globalAlpha = passed || stop.u === 0 || p >= f - 0.02 ? 1 : 0.85;
+    drawPlanet(ctx, stop.kind, x, y, r, t); ctx.globalAlpha = 1;
+    if (!opts.mini) {
+      const right = x <= R.cx, lx = right ? x + r + 10 : x - r - 10;
+      ctx.font = `900 ${Math.max(12, m * 0.045)}px Nunito, ui-rounded, system-ui, sans-serif`; ctx.textAlign = right ? "left" : "right"; ctx.textBaseline = "middle";
+      ctx.fillStyle = passed ? P.green : "rgba(255,255,255,0.85)"; ctx.fillText(stop.name, lx, y);
+    }
+    if (passed && stop.kind !== "dest") { circ(ctx, x + r * 0.75, y - r * 0.75, r * 0.38, "#fff"); circ(ctx, x + r * 0.75, y - r * 0.75, r * 0.3, P.green);
+      ctx.lineWidth = Math.max(2, r * 0.09); ctx.strokeStyle = "#fff"; ctx.lineCap = "round"; ctx.beginPath();
+      ctx.moveTo(x + r * 0.62, y - r * 0.75); ctx.lineTo(x + r * 0.72, y - r * 0.63); ctx.lineTo(x + r * 0.9, y - r * 0.87); ctx.stroke(); ctx.lineCap = "butt"; }
+  }
+  // the rocket
+  const bob = opts.mini ? 0 : Math.sin(t * 6) * 1.5;
+  drawRocket(ctx, here.x, here.y + bob, m * (opts.mini ? 0.2 : 0.14), here.ang, t, p < 1);
+  return h;
+}
+function drawRocketTimer(ctx, w, h, sess, t) { return drawRocketRoute(ctx, w, h, sess.progress, t); }
+
 // ---- small pictures on the home screen theme tiles
 function drawThemeIcon(ctx, w, h, theme, t) {
   if (theme.timer === "ring") { const s = Math.min(w / 1.05, h / 1.2); drawMascot(ctx, w / 2 - s / 2, h / 2 - s * 0.6, s, { costume: theme.costume }, t); return; }
@@ -1020,6 +1144,11 @@ function drawThemeIcon(ctx, w, h, theme, t) {
       for (let c = 0; c < n; c++) drawMarble(ctx, x + x0 + c * d, y + yy, d / 2, Math.floor(rnd() * 7));
     }
     ctx.restore(); rrect(ctx, x, y, S, S, 14); ctx.lineWidth = 3; ctx.strokeStyle = P.border; ctx.stroke(); return;
+  }
+  if (theme.timer === "rocket") {
+    ctx.save(); rrect(ctx, 2, 2, w - 4, h - 4, 14); ctx.fillStyle = "#0B1230"; ctx.fill(); ctx.clip();
+    drawRocketRoute(ctx, w - 4, h - 4, 0.45, t, { mini: true }); ctx.restore();
+    rrect(ctx, 2, 2, w - 4, h - 4, 14); ctx.lineWidth = 3; ctx.strokeStyle = P.border; ctx.stroke(); return;
   }
   if (theme.timer === "coloring") {
     let pw = w, ph = pw * 0.75; if (ph > h) { ph = h; pw = ph / 0.75; }
@@ -1094,6 +1223,69 @@ function drawGift(ctx, g, color, lip, lid) {
   ell(ctx, g * 0.13, -g * 0.15, g * 0.13, g * 0.085, P.yellow, rad(30));
   circ(ctx, 0, -g * 0.11, g * 0.06, P.yellowLip);
   ctx.restore(); ctx.globalAlpha = 1;
+}
+
+/** chunky slot machine: marquee with blinking bulbs, three reels, and a lever on the right */
+function drawSlotMachine(ctx, w, h, f, th, t) {
+  const drop = Math.min((t - f.slotT) / 0.5, 1), ease = 1 - Math.pow(1 - drop, 3);
+  const B = Math.min(w * 0.74, 290, h * 0.9), bodyH = B * 0.82, markH = B * 0.24;
+  const totalH = markH + bodyH, x = (w - B) / 2 - B * 0.06, y = (h - totalH) / 2 + (1 - ease) * -h * 0.6;
+  const win = f.jackpot && f.resolved, spinning = f.pullT && !f.resolved;
+  // marquee
+  fillRR(ctx, x + B * 0.06, y + 5, B * 0.88, markH, 16, P.yellowLip);
+  fillRR(ctx, x + B * 0.06, y, B * 0.88, markH, 16, P.yellow);
+  ctx.font = `900 ${markH * 0.42}px Nunito, ui-rounded, system-ui, sans-serif`; ctx.textAlign = "center"; ctx.textBaseline = "middle";
+  ctx.fillStyle = win && Math.floor(t * 6) % 2 ? P.red : "#5A3D00"; ctx.fillText(win ? "JACKPOT!" : "PRIZE SPIN", x + B / 2, y + markH * 0.52);
+  // bulbs around the marquee: chase while spinning, flash on a jackpot
+  const bulbs = 12;
+  for (let i = 0; i < bulbs; i++) {
+    const bx = x + B * 0.06 + (i + 0.5) * B * 0.88 / bulbs;
+    const on = win ? Math.floor(t * 8) % 2 === 0 : spinning ? (Math.floor(t * 14) + i) % 3 === 0 : (Math.floor(t * 2) + i) % 2 === 0;
+    circ(ctx, bx, y + 6, B * 0.018, on ? "#fff" : "#E0A905"); circ(ctx, bx, y + markH - 6, B * 0.018, on ? "#fff" : "#E0A905");
+  }
+  // body
+  const by = y + markH + 6;
+  fillRR(ctx, x, by + 6, B, bodyH, 24, th.lip);
+  fillRR(ctx, x, by, B, bodyH, 24, th.primary);
+  ctx.globalAlpha = 0.25; fillRR(ctx, x + 12, by + 10, B * 0.12, bodyH - 20, 8, "#fff"); ctx.globalAlpha = 1;
+  // reel window
+  const pad = B * 0.07, rw = (B - pad * 2 - B * 0.04) / 3, rh = rw * 1.25, ry = by + bodyH * 0.12;
+  fillRR(ctx, x + pad - 6, ry - 6, B - pad * 2 + 12, rh + 12, 16, "#20303A");
+  for (let i = 0; i < 3; i++) {
+    const rx = x + pad + i * (rw + B * 0.02), r = f.reels[i];
+    ctx.save(); rrect(ctx, rx, ry, rw, rh, 12); ctx.fillStyle = "#FFFDF6"; ctx.fill(); ctx.clip();
+    const n = f.icons.length, base = Math.floor(r.pos), frac = r.pos - base, cell = rh * 0.8;
+    ctx.font = `${cell * 0.62}px system-ui, "Apple Color Emoji", "Segoe UI Emoji", sans-serif`; ctx.textAlign = "center"; ctx.textBaseline = "middle";
+    for (let k = -2; k <= 2; k++) {
+      const idx = ((base + k) % n + n) % n, cy = ry + rh / 2 + (k - frac) * cell;
+      const blur = !r.done && f.pullT ? 0.55 : 1;
+      ctx.globalAlpha = blur * (k === 0 && frac < 0.01 ? 1 : 0.9);
+      ctx.fillText(f.icons[idx], rx + rw / 2, cy);
+    }
+    ctx.globalAlpha = 1;
+    // soft shading at the top and bottom of each reel
+    const g = ctx.createLinearGradient(0, ry, 0, ry + rh);
+    g.addColorStop(0, "rgba(0,0,0,0.25)"); g.addColorStop(0.25, "rgba(0,0,0,0)"); g.addColorStop(0.75, "rgba(0,0,0,0)"); g.addColorStop(1, "rgba(0,0,0,0.25)");
+    ctx.fillStyle = g; ctx.fillRect(rx, ry, rw, rh);
+    ctx.restore();
+    if (win) { rrect(ctx, rx, ry, rw, rh, 12); ctx.lineWidth = 4; ctx.strokeStyle = Math.floor(t * 8) % 2 ? P.yellow : "#fff"; ctx.stroke(); }
+  }
+  // pay line
+  ctx.globalAlpha = 0.8; fillRR(ctx, x + pad - 10, ry + rh / 2 - 2, B - pad * 2 + 20, 4, 2, P.red); ctx.globalAlpha = 1;
+  // coin tray
+  fillRR(ctx, x + B * 0.25, by + bodyH * 0.78, B * 0.5, bodyH * 0.12, 10, th.lip);
+  fillRR(ctx, x + B * 0.28, by + bodyH * 0.8, B * 0.44, bodyH * 0.06, 6, "#20303A");
+  // lever: pivots on the right side; swings down when pulled
+  const px = x + B + 4, py = by + bodyH * 0.45, len = B * 0.48;
+  let ang = -100;
+  if (f.pullT) { const u = t - f.pullT; ang = u < 0.25 ? -100 + 150 * (u / 0.25) : u < 0.7 ? 50 - 150 * ((u - 0.25) / 0.45) : -100; }
+  else ang = -100 + Math.sin(t * 5) * 6;     // wiggles: "pull me!"
+  fillRR(ctx, px - 4, py - 14, 16, 28, 6, "#9AA7B0");
+  ctx.save(); ctx.translate(px + 4, py); ctx.rotate(rad(ang + 90));
+  fillRR(ctx, -4, -len, 8, len, 4, "#C9D3D9");
+  circ(ctx, 0, -len + 2, B * 0.075, P.redLip); circ(ctx, 0, -len, B * 0.075, P.red); circ(ctx, -B * 0.025, -len - B * 0.025, B * 0.022, "#fff");
+  ctx.restore();
+  f.leverBox = { x: px - B * 0.1, y: py - len - B * 0.1, w: B * 0.25, h: len + B * 0.3 };
 }
 
 // ============================================================ brushing session
@@ -1251,10 +1443,10 @@ const UI = {
 
   // ---------- finale
   finish() {
-    const s = this.session, th = s.theme, sticker = rewards.award(th);
+    const s = this.session, th = s.theme;
     this.releaseWake();
     $("countdown").innerHTML = "";
-    this.finale = { phase: "boom", t0: performance.now() / 1000, sticker, isNew: rewards.lastWasNew, giftShake: 0, lidOff: 0, opened: 0 };
+    const f = this.finale = { phase: "boom", t0: performance.now() / 1000, sticker: null, isNew: false };
     $("finaleTitle").textContent = th.finale;
     $("finaleTitle").style.animation = "none"; void $("finaleTitle").offsetWidth; $("finaleTitle").style.animation = "";
     $("badge").hidden = true; $("badge").className = "";
@@ -1262,67 +1454,110 @@ const UI = {
     this.show("finale");
     const A = AudioEngine;
     A.play("boom"); buzz([30, 40, 60]);
-    $("flash").classList.remove("on"); void $("flash").offsetWidth; $("flash").classList.add("on");
+    this.flash();
     $("app").classList.remove("shake"); void $("app").offsetWidth; $("app").classList.add("shake");
     burst(innerWidth / 2, innerHeight * 0.45, [...th.shapes, th.primary, P.pink, P.green], true);
-    const at = (sec, fn) => setTimeout(() => { if (this.finale && this.finale.sticker === sticker) fn(); }, sec * 1000);
+    const at = (sec, fn) => setTimeout(() => { if (this.finale === f) fn(); }, sec * 1000);
     at(0.6, () => { A.play("fanfare", 0.8); A.sayNow(th.id, "finale"); burst(innerWidth * 0.18, innerHeight * 0.28, [P.yellow, "#fff"], true, true); burst(innerWidth * 0.82, innerHeight * 0.22, [th.primary, "#fff"], true, true); });
     at(1.4, () => { A.play("sparkle"); burst(innerWidth * 0.5, innerHeight * 0.2, [th.light, "#fff"], true, true); });
-    at(4.2, () => {
-      A.play("whoosh"); this.finale.phase = "gift"; this.finale.giftT = performance.now() / 1000;
-      $("finaleFooter").innerHTML = '<button class="btn" id="openBtn">Open it!</button>';
-      $("openBtn").addEventListener("click", () => this.openGift());
+    at(3.4, () => {
+      A.play("whoosh");
+      const icons = th.stickers.map(x => x.emoji);
+      f.phase = "slot"; f.slotT = performance.now() / 1000; f.icons = icons;
+      f.reels = [0, 1, 2].map(i => ({ pos: (i * 2) % icons.length, from: 0, dist: 0, t0: 0, t1: 0, done: true, lastTick: 0 }));
+      f.pullT = null;
+      $("finaleTitle").textContent = "Pull the lever!";
+      $("finaleFooter").innerHTML = '<button class="btn" id="pullBtn">Pull the lever!</button>';
+      $("pullBtn").addEventListener("click", () => this.pullLever());
     });
-    at(12, () => this.openGift());
+    at(16, () => this.pullLever());
   },
-  openGift() {
-    const f = this.finale; if (!f || f.phase !== "gift") return;
-    const th = this.session.theme, A = AudioEngine;
-    f.phase = "opening"; f.openT = performance.now() / 1000;
-    const ob = $("openBtn"); if (ob) { ob.disabled = true; ob.textContent = "Opening…"; }
+  flash() { $("flash").classList.remove("on"); void $("flash").offsetWidth; $("flash").classList.add("on"); },
+  /** spin the three reels; about 1 in 5 pulls lines up the grand prize */
+  pullLever() {
+    const f = this.finale; if (!f || f.phase !== "slot" || f.pullT) return;
+    const th = this.session.theme, A = AudioEngine, n = f.icons.length;
+    const jackpotIcon = th.stickers.findIndex(x => x.rarity === "legendary");
+    f.jackpot = Math.random() < 0.2;
+    let targets;
+    if (f.jackpot) targets = [jackpotIcon, jackpotIcon, jackpotIcon];
+    else {
+      do { targets = [0, 1, 2].map(() => Math.floor(Math.random() * n)); }
+      while (targets[0] === targets[1] && targets[1] === targets[2]);
+      if (Math.random() < 0.35) { targets[0] = targets[1] = jackpotIcon; if (targets[2] === jackpotIcon) targets[2] = (jackpotIcon + 1) % n; }  // so close!
+    }
+    const now = performance.now() / 1000;
+    f.pullT = now;
+    f.reels.forEach((r, i) => {
+      r.from = r.pos; r.t0 = now + 0.35; r.t1 = r.t0 + 1.3 + i * 0.6; r.done = false; r.target = targets[i];
+      r.dist = n * (4 + i * 2) + ((targets[i] - Math.round(r.pos)) % n + n) % n;
+    });
+    const pb = $("pullBtn"); if (pb) { pb.disabled = true; pb.textContent = "Spinning…"; }
+    $("finaleTitle").textContent = "Spinning…";
     A.play("rattle"); buzz(20);
-    setTimeout(() => { A.play("rattle"); buzz(20); }, 450);
-    setTimeout(() => A.play("pop"), 900);
-    setTimeout(() => {
-      A.play("sparkle"); A.play("fanfare", 0.6); buzz([30, 30, 50]);
-      $("flash").classList.remove("on"); void $("flash").offsetWidth; $("flash").classList.add("on");
-      f.phase = "reveal";
-      $("finaleTitle").textContent = "New sticker!";
-      const st = f.sticker, R = RARITY[st.rarity];
-      const badge = $("badge");
-      badge.innerHTML = `<div class="badge" style="width:200px;height:200px;background:${R.color};box-shadow:0 10px 0 ${R.lip}"><div class="ring"></div><span style="font-size:100px;line-height:1">${st.emoji}</span></div>` + (f.isNew ? '<span class="new">NEW</span>' : "");
-      badge.hidden = false; badge.classList.add("show");
-      const sr = $("stage").getBoundingClientRect();
-      burst(sr.left + sr.width / 2, sr.top + sr.height / 2, [R.color, "#fff", th.primary], true);
-      setTimeout(() => burst(innerWidth * 0.2, innerHeight * 0.25, [P.yellow, "#fff"], true, true), 700);
-      $("finaleFooter").innerHTML = `
-        <div class="card"><canvas id="footMascot"></canvas><div>
-          <div class="rarity" style="color:${R.color}">${R.label}</div>
-          <div class="sname">${st.name}</div>
-          ${rewards.streak > 0 ? `<div class="streakline">🔥 ${rewards.streak} day streak</div>` : ""}
-        </div></div>
-        <button class="btn" id="contBtn">Continue</button>
-        <button class="btn outline" id="bookBtn2">Sticker book</button>`;
-      $("contBtn").addEventListener("click", () => { A.play("tap"); A.stopVoice(); A.stopMusic(); this.finale = null; this.session = null; this.show("home"); this.buildHome(); });
-      $("bookBtn2").addEventListener("click", () => { A.play("tap"); this.openBook(st.id); });
-    }, 1100);
+    // award now so it's saved even if they leave mid-spin
+    f.sticker = rewards.award(th, f.jackpot); f.isNew = rewards.lastWasNew;
+  },
+  updateSlot(t) {
+    const f = this.finale; if (!f || f.phase !== "slot" || !f.pullT) return;
+    const A = AudioEngine, n = f.icons.length;
+    let all = true;
+    f.reels.forEach(r => {
+      if (r.done) return;
+      const u = Math.min(Math.max((t - r.t0) / (r.t1 - r.t0), 0), 1), e = 1 - Math.pow(1 - u, 3);
+      r.pos = r.from + r.dist * e;
+      const cell = Math.floor(r.pos);
+      if (cell !== r.lastTick) { r.lastTick = cell; if (u > 0 && u < 1) A.playQuiet("clack", 0.12); }
+      if (u >= 1) { r.done = true; r.pos = r.target; A.play("tap"); buzz(15); } else all = false;
+    });
+    if (all && !f.resolved) {
+      f.resolved = true;
+      const th = this.session.theme;
+      if (f.jackpot) {
+        f.winT = t; $("finaleTitle").textContent = "JACKPOT!";
+        A.play("fanfare"); A.play("sparkle"); buzz([40, 40, 40, 40, 80]); this.flash();
+        burst(innerWidth / 2, innerHeight * 0.4, [P.yellow, "#fff", th.primary, P.pink], true);
+        setTimeout(() => burst(innerWidth * 0.2, innerHeight * 0.3, [P.yellow, "#fff"], true, true), 400);
+        setTimeout(() => burst(innerWidth * 0.8, innerHeight * 0.3, [P.yellow, "#fff"], true, true), 800);
+        setTimeout(() => this.reveal(), 2000);
+      } else {
+        $("finaleTitle").textContent = "You won a prize!";
+        A.play("pop"); A.play("sparkle", 0.6);
+        setTimeout(() => this.reveal(), 1100);
+      }
+    }
+  },
+  reveal() {
+    const f = this.finale; if (!f || f.phase !== "slot") return;
+    const th = this.session.theme, A = AudioEngine, st = f.sticker, R = RARITY[st.rarity];
+    A.play("sparkle"); if (!f.jackpot) A.play("fanfare", 0.6); buzz([30, 30, 50]);
+    this.flash();
+    f.phase = "reveal";
+    $("finaleTitle").textContent = f.jackpot ? "Grand prize!" : "New sticker!";
+    const badge = $("badge");
+    badge.innerHTML = `<div class="badge" style="width:200px;height:200px;background:${R.color};box-shadow:0 10px 0 ${R.lip}"><div class="ring"></div><span style="font-size:100px;line-height:1">${st.emoji}</span></div>` + (f.isNew ? '<span class="new">NEW</span>' : "");
+    badge.hidden = false; badge.classList.remove("show"); void badge.offsetWidth; badge.classList.add("show");
+    const sr = $("stage").getBoundingClientRect();
+    burst(sr.left + sr.width / 2, sr.top + sr.height / 2, [R.color, "#fff", th.primary], true);
+    $("finaleFooter").innerHTML = `
+      <div class="card"><canvas id="footMascot"></canvas><div>
+        <div class="rarity" style="color:${R.color}">${f.jackpot ? "Grand prize · " : ""}${R.label}</div>
+        <div class="sname">${st.name}</div>
+        ${rewards.streak > 0 ? `<div class="streakline">🔥 ${rewards.streak} day streak</div>` : ""}
+      </div></div>
+      <button class="btn" id="contBtn">Continue</button>
+      <button class="btn outline" id="bookBtn2">Sticker book</button>`;
+    $("contBtn").addEventListener("click", () => { A.play("tap"); A.stopVoice(); A.stopMusic(); this.finale = null; this.session = null; this.show("home"); this.buildHome(); });
+    $("bookBtn2").addEventListener("click", () => { A.play("tap"); this.openBook(st.id); });
   },
   drawStage(ctx, w, h, t) {
     const f = this.finale, th = this.session.theme;
     if (f.phase === "boom") {
       const k = Math.min((t - f.t0) / 0.5, 1), s = Math.min(220, w * 0.6) * (0.2 + 0.8 * (1 - Math.pow(1 - k, 3)));
       ctx.globalAlpha = k; drawMascot(ctx, w / 2 - s / 2, h / 2 - s * 0.6, s, { costume: th.costume, mood: "cheer", talking: AudioEngine.speaking }, t); ctx.globalAlpha = 1;
-    } else if (f.phase === "gift" || f.phase === "opening") {
-      const g = Math.min(190, w * 0.55), drop = Math.min((t - f.giftT) / 0.5, 1);
-      let lid = 0, dx = 0, dy = 0;
-      if (f.phase === "opening") {
-        const u = t - f.openT;
-        if (u < 0.9) { dx = Math.sin(u * 30) * 16; dy = Math.cos(u * 39) * 6; }
-        lid = Math.min(Math.max((u - 0.9) / 0.25, 0), 1);
-      }
-      const wob = f.phase === "gift" ? Math.sin(t * 9) * 6 : 0, sc = f.phase === "gift" ? 1 + Math.sin(t * 9) * 0.04 : 1;
-      ctx.save(); ctx.translate(w / 2 + dx, h / 2 + dy - (1 - drop) * h * 0.6); ctx.rotate(rad(wob)); ctx.scale(sc, sc);
-      drawGift(ctx, g, th.primary, th.lip, lid); ctx.restore();
+    } else if (f.phase === "slot") {
+      this.updateSlot(t);
+      drawSlotMachine(ctx, w, h, f, th, t);
     } else if (f.phase === "reveal") {
       const R = RARITY[f.sticker.rarity], a = t * 0.35, r = Math.max(w, h);
       ctx.save(); ctx.translate(w / 2, h / 2); ctx.globalAlpha = 0.22; ctx.fillStyle = R.color;
@@ -1350,6 +1585,7 @@ const UI = {
 
 // ============================================================ wiring
 $("startBtn").addEventListener("click", () => UI.start());
+$("stage").addEventListener("click", () => { if (UI.finale && UI.finale.phase === "slot") UI.pullLever(); });
 $("bookBtn").addEventListener("click", () => { AudioEngine.unlock(); AudioEngine.play("tap"); UI.openBook(); });
 $("bookClose").addEventListener("click", () => { AudioEngine.play("tap"); $("book").hidden = true; });
 $("musicBtn").addEventListener("click", () => { AudioEngine.unlock(); settings.music = !settings.music; store.set("music", settings.music); AudioEngine.play("tap"); UI.buildHome(); });
@@ -1390,6 +1626,7 @@ function frame(nowMs) {
     else if (s.theme.timer === "plinko") bottom = drawPlinko(ctx, w, room, s);
     else if (s.theme.timer === "sandJar") bottom = drawSandTimer(ctx, w, room, s, t);
     else if (s.theme.timer === "coloring") bottom = drawColoringTimer(ctx, w, room, s, t);
+    else if (s.theme.timer === "rocket") bottom = drawRocketTimer(ctx, w, room, s, t);
     else bottom = drawTiles(ctx, w, room, s, t);
     const pill = $("pill"); pill.style.top = (bottom - pillH / 2) + "px";
     const left = Math.ceil(s.remaining); pill.textContent = Math.floor(left / 60) + ":" + String(left % 60).padStart(2, "0");
