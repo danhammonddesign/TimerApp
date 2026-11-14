@@ -701,14 +701,28 @@ function petPicture(pet, w, h) {
   if (picCache[key]) return picCache[key];
   const c = document.createElement("canvas"); c.width = Math.ceil(w * dpr); c.height = Math.ceil(h * dpr);
   const x = c.getContext("2d"); x.setTransform(dpr, 0, 0, dpr, 0, 0);
-  x.fillStyle = { cat: "#FFE8A3", dog: "#BDE8FF", bunny: "#D9F7C9", panda: "#FFD6E5", fox: "#CDEBFF", frog: "#FFF1B8" }[pet] || "#FFE8A3"; x.fillRect(0, 0, w, h);
-  for (let i = 0; i < 8; i++) {
+  const bgCol = { cat: "#FFE8A3", dog: "#BDE8FF", bunny: "#D9F7C9", panda: "#FFD6E5", fox: "#CDEBFF", frog: "#FFF1B8" }[pet] || "#FFE8A3";
+  const rayCol = { cat: "#FFD36B", dog: "#8FD3FF", bunny: "#B4EC98", panda: "#FFB3CF", fox: "#9FD6FF", frog: "#FFE07A" }[pet] || "#FFD36B";
+  x.fillStyle = bgCol; x.fillRect(0, 0, w, h);
+  // sunburst rays fill the whole picture
+  const cx = w / 2, cy = h * 0.56, R = Math.hypot(w, h);
+  x.fillStyle = rayCol;
+  for (let i = 0; i < 16; i++) { const a = i / 16 * Math.PI * 2; x.beginPath(); x.moveTo(cx, cy); x.arc(cx, cy, R, a, a + Math.PI / 16); x.closePath(); x.fill(); }
+  // soft glow behind the face
+  const glow = x.createRadialGradient(cx, cy, 0, cx, cy, Math.min(w, h) * 0.6);
+  glow.addColorStop(0, "rgba(255,255,255,0.75)"); glow.addColorStop(1, "rgba(255,255,255,0)");
+  x.fillStyle = glow; x.fillRect(0, 0, w, h);
+  // hearts and sparkles all around the edges
+  for (let i = 0; i < 18; i++) {
     const a = hash(i * 7 + 40), b = hash(i * 13 + 41), cc = hash(i * 17 + 42);
-    if (i % 2 === 0) { x.globalAlpha = 0.55; heart(x, w * b, h * cc, 14 + a * 16, P.pink); x.globalAlpha = 1; }
-    else { x.globalAlpha = 0.8; sparkle(x, w * b, h * cc, 22, "#fff"); x.globalAlpha = 1; }
+    const px = w * (0.04 + 0.92 * b), py = h * (0.03 + 0.94 * cc);
+    if (i % 2 === 0) { x.globalAlpha = 0.8; heart(x, px, py, 16 + a * 18, P.pink); }
+    else { x.globalAlpha = 0.9; sparkle(x, px, py, 18 + a * 14, "#fff"); }
   }
-  const s = Math.min(w, h) * 0.9;
-  drawPetFace(x, pet, w / 2 - s / 2, h * 0.56 - s / 2, s);
+  x.globalAlpha = 1;
+  // the animal, as big as the picture allows
+  const s = Math.min(w * 1.08, h * 0.86);
+  drawPetFace(x, pet, cx - s / 2, cy - s / 2, s);
   return (picCache[key] = c);
 }
 function heart(ctx, cx, cy, s, fill) {
@@ -1021,6 +1035,7 @@ const UI = {
       return;
     }
     settings.themeId = t.id; store.set("theme", t.id);
+    variants.advance(t);          // a new jar animal / hidden picture every time this theme is picked
     AudioEngine.play("tap"); buzz(8);
     $("tagline").classList.remove("pop"); void $("tagline").offsetWidth; $("tagline").classList.add("pop");
     this.buildHome();
@@ -1036,6 +1051,7 @@ const UI = {
     btn.disabled = false; btn.textContent = "Start brushing";
     AudioEngine.stopVoice(); AudioEngine.play("sparkle");
     this.session = new Session(th, settings.duration);
+    variants.advance(th);         // next time (after finishing or quitting) it's a different one
     mouthState.bx = null;
     const segs = $("segs"); segs.innerHTML = ZONES.map(() => '<div class="seg"><i></i></div>').join("");
     $("bubbleRow").classList.toggle("side", th.timer !== "ring");
@@ -1071,7 +1087,6 @@ const UI = {
   // ---------- finale
   finish() {
     const s = this.session, th = s.theme, sticker = rewards.award(th);
-    variants.advance(th);
     this.releaseWake();
     $("countdown").innerHTML = "";
     this.finale = { phase: "boom", t0: performance.now() / 1000, sticker, isNew: rewards.lastWasNew, giftShake: 0, lidOff: 0, opened: 0 };
