@@ -47,9 +47,12 @@ the side of the mouth being brushed, scrubs with a toothbrush and wears a costum
 It's published as a web page you can open in Safari on the iPhone and add to the Home Screen
 (Share → Add to Home Screen). Stickers and the streak are saved in that browser.
 
-To run it from this folder instead, copy the audio next to it and serve the folder:
-the page loads `audio/<name>.wav` and `audio/voice_<theme>_<line>.mp4`
-(the `.m4a` voice files, renamed to `.mp4`).
+It's hosted with GitHub Pages at **https://danhammonddesign.github.io/TimerApp/**
+(served from the `docs/` folder). After changing anything in `web/` or the audio, rebuild that folder:
+
+```bash
+python3 tools/build_site.py
+```
 
 ## Run it on your iPhone
 
