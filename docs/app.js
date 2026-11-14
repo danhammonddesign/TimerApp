@@ -1150,27 +1150,216 @@ function cockpitState(key) {
   }
   return cockpitStates[key];
 }
+// ---- little things that live on the planets (drawn standing on the planet's edge)
+/** run `draw` at angle `deg` on the planet's rim, standing upright, in units where the planet radius is 100 */
+function onLimb(ctx, x, y, r, deg, draw) {
+  const a = rad(deg);
+  ctx.save(); ctx.translate(x + Math.cos(a) * r, y + Math.sin(a) * r); ctx.rotate(a + Math.PI / 2); ctx.scale(r / 100, r / 100);
+  draw(); ctx.restore();
+}
+function drawAlien(ctx, t, color, lip, phase = 0, eyes = 2) {
+  // feet at the origin, about 34 tall
+  capsule(ctx, -5, -3, 5, 8, lip); capsule(ctx, 5, -3, 5, 8, lip);
+  fillRR(ctx, -9, -22, 18, 18, 8, color);
+  // waving arm + resting arm
+  ctx.save(); ctx.translate(8, -17); ctx.rotate(rad(-120 + Math.sin(t * 7 + phase) * 28)); fillRR(ctx, -2, 0, 4, 13, 2, color); ctx.restore();
+  ctx.save(); ctx.translate(-8, -17); ctx.rotate(rad(25)); fillRR(ctx, -2, 0, 4, 11, 2, color); ctx.restore();
+  circ(ctx, 0, -29, 10, lip); circ(ctx, 0, -30, 10, color);
+  // antenna
+  fillRR(ctx, -1, -46, 2, 8, 1, lip); circ(ctx, 0, -47, 3, P.yellow);
+  const blink = ((t + phase) % 3.1) < 0.12;
+  if (eyes === 1) { ell(ctx, 0, -31, 5, blink ? 0.8 : 5, "#fff"); if (!blink) circ(ctx, 1, -31, 2.4, P.pupil); }
+  else for (const ex of [-4, 4]) { ell(ctx, ex, -31, 3.2, blink ? 0.6 : 3.6, "#fff"); if (!blink) circ(ctx, ex + 0.6, -31, 1.6, P.pupil); }
+  ctx.lineWidth = 1.4; ctx.strokeStyle = P.pupil; ctx.lineCap = "round"; ctx.beginPath(); ctx.arc(0, -27, 3.4, 0.2, Math.PI - 0.2); ctx.stroke(); ctx.lineCap = "butt";
+}
+function drawCrashedSaucer(ctx, t) {
+  ctx.save(); ctx.rotate(rad(24));
+  ell(ctx, 0, -7, 26, 8, "#7F8C99"); ell(ctx, 0, -9, 26, 8, "#B9C7D1");
+  ctx.globalAlpha = 0.85; ctx.beginPath(); ctx.arc(0, -11, 11, Math.PI, 0); ctx.closePath(); ctx.fillStyle = "#8FE9FF"; ctx.fill(); ctx.globalAlpha = 1;
+  ctx.strokeStyle = "#2B3A40"; ctx.lineWidth = 1.2; ctx.beginPath(); ctx.moveTo(-3, -21); ctx.lineTo(1, -16); ctx.lineTo(-2, -12); ctx.stroke();   // cracked dome
+  for (const lx of [-16, -5, 6, 17]) circ(ctx, lx, -8, 2, (Math.floor(t * 3 + lx) % 2) ? P.yellow : "#7F8C99");
+  ctx.restore();
+  // smoke puffs drifting up
+  for (let i = 0; i < 4; i++) { const u = ((t * 0.5 + i * 0.25) % 1); ctx.globalAlpha = 0.5 * (1 - u); circ(ctx, 8 + Math.sin(i * 2 + t) * 4, -22 - u * 34, 4 + u * 7, "#DDE5EA"); }
+  ctx.globalAlpha = 1;
+}
+function drawFlag(ctx, t, color) {
+  fillRR(ctx, -1, -30, 2, 30, 1, "#fff");
+  const wv = Math.sin(t * 5) * 2;
+  ctx.beginPath(); ctx.moveTo(1, -30); ctx.lineTo(17, -25 + wv); ctx.lineTo(1, -19); ctx.closePath(); ctx.fillStyle = color; ctx.fill();
+}
+function drawRover(ctx, t) {
+  for (const wx of [-9, 0, 9]) { circ(ctx, wx, -4, 4, "#2B3A40"); circ(ctx, wx, -4, 1.6, "#9AA7B0"); }
+  fillRR(ctx, -13, -15, 26, 9, 3, "#F4F1FA"); fillRR(ctx, -13, -15, 26, 3, 2, P.orange);
+  fillRR(ctx, 4, -24, 2, 10, 1, "#9AA7B0"); fillRR(ctx, 1, -28, 9, 5, 2, "#2B3A40"); circ(ctx, 7.5, -25.5, 1.5, (Math.floor(t * 2) % 2) ? P.red : "#7F1D1D");
+  fillRR(ctx, -11, -21, 2, 7, 1, "#9AA7B0"); ell(ctx, -10, -22, 5, 2, "#B9C7D1");
+}
+function drawVolcano(ctx, t) {
+  ctx.beginPath(); ctx.moveTo(-24, 2); ctx.lineTo(-7, -26); ctx.lineTo(7, -26); ctx.lineTo(24, 2); ctx.closePath(); ctx.fillStyle = "#8C2F12"; ctx.fill();
+  ctx.beginPath(); ctx.moveTo(-7, -26); ctx.lineTo(7, -26); ctx.lineTo(4, -17); ctx.lineTo(0, -21); ctx.lineTo(-4, -16); ctx.closePath(); ctx.fillStyle = P.yellow; ctx.fill();
+  for (let i = 0; i < 4; i++) { const u = (t * 0.6 + i * 0.25) % 1; ctx.globalAlpha = 0.8 * (1 - u); circ(ctx, Math.sin(i * 3 + t * 2) * 5, -28 - u * 30, 3 + u * 6, i % 2 ? P.orange : "#FFD98A"); }
+  ctx.globalAlpha = 1;
+}
+function drawDomeCity(ctx, t) {
+  // three glass domes with tiny lit buildings inside
+  for (const [dx, dr] of [[-30, 15], [0, 22], [30, 15]]) {
+    for (let i = -1; i <= 1; i++) { const bh = dr * (0.45 + 0.3 * Math.abs(Math.sin(dx + i * 2))); fillRR(ctx, dx + i * dr * 0.42 - dr * 0.15, -bh, dr * 0.3, bh, 1.5, i ? "#7C5CD6" : "#9B7BFF");
+      circ(ctx, dx + i * dr * 0.42, -bh * 0.6, 1.2, (Math.floor(t * 2 + i + dx) % 2) ? P.yellow : "#FFF4B0"); }
+    ctx.beginPath(); ctx.arc(dx, 0, dr, Math.PI, 0); ctx.closePath(); ctx.fillStyle = "rgba(143,233,255,0.3)"; ctx.fill(); ctx.lineWidth = 1.6; ctx.strokeStyle = "rgba(255,255,255,0.8)"; ctx.stroke();
+  }
+}
+/** detailed planets for the cockpit window; everything scales with the radius */
+function drawBigPlanet(ctx, kind, x, y, r, t) {
+  const disc = (fill, lip) => { circ(ctx, x, y + r * 0.05, r, lip); circ(ctx, x, y, r, fill); };
+  const shade = () => {   // soft shadow on the lower right + a thin atmosphere glow
+    ctx.save(); ell(ctx, x, y, r, r); ctx.clip(); ctx.globalAlpha = 0.2; circ(ctx, x + r * 0.55, y + r * 0.5, r * 1.05, "#000");
+    ctx.globalAlpha = 0.16; circ(ctx, x - r * 0.45, y - r * 0.5, r * 0.5, "#fff"); ctx.restore(); ctx.globalAlpha = 1;
+  };
+  const glow = c => { ctx.globalAlpha = 0.35; ctx.lineWidth = Math.max(1.5, r * 0.06); ctx.strokeStyle = c; ctx.beginPath(); ctx.arc(x, y, r * 1.04, 0, Math.PI * 2); ctx.stroke(); ctx.globalAlpha = 1; };
+  const crater = (u, v, k) => { const cx2 = x + u * r, cy2 = y + v * r, cr = k * r; ell(ctx, cx2, cy2 + cr * 0.15, cr, cr * 0.8, "rgba(0,0,0,0.18)"); ell(ctx, cx2, cy2, cr, cr * 0.8, "rgba(0,0,0,0.12)"); ell(ctx, cx2 - cr * 0.15, cy2 - cr * 0.2, cr * 0.5, cr * 0.3, "rgba(255,255,255,0.14)"); };
+  if (kind === "moon") {
+    glow("#DDE9F2"); disc("#D5DDE2", "#9AA7B0");
+    ctx.save(); ell(ctx, x, y, r, r); ctx.clip();
+    [[-0.35, -0.3, 0.2], [0.3, 0.1, 0.26], [-0.15, 0.45, 0.16], [0.5, -0.45, 0.12], [-0.62, 0.15, 0.1], [0.05, -0.6, 0.09]].forEach(c => crater(...c));
+    ctx.restore(); shade();
+    onLimb(ctx, x, y, r, -118, () => drawAlien(ctx, t, P.green, P.greenLip, 0, 1));
+    onLimb(ctx, x, y, r, -96, () => drawFlag(ctx, t, P.red));
+    onLimb(ctx, x, y, r, -52, () => drawCrashedSaucer(ctx, t));
+  } else if (kind === "mars") {
+    glow("#FFB38A"); disc("#F26B3A", "#C2410C");
+    ctx.save(); ell(ctx, x, y, r, r); ctx.clip();
+    ell(ctx, x - r * 0.3, y - r * 0.15, r * 0.5, r * 0.22, "rgba(140,47,18,0.35)", -0.3); ell(ctx, x + r * 0.35, y + r * 0.4, r * 0.45, r * 0.18, "rgba(140,47,18,0.35)", 0.4);
+    [[0.35, -0.35, 0.16], [-0.45, 0.35, 0.2], [0.1, 0.1, 0.1]].forEach(c => crater(...c));
+    // ice cap
+    ell(ctx, x, y - r * 0.93, r * 0.5, r * 0.16, "rgba(255,255,255,0.85)");
+    // two shy aliens peeking out of a crater
+    const peek = Math.max(0, Math.sin(t * 1.3)) * r * 0.1;
+    for (const k of [-1, 1]) { const ax = x - r * 0.45 + k * r * 0.07, ay = y + r * 0.33 - peek; circ(ctx, ax, ay, r * 0.06, P.pink); circ(ctx, ax - r * 0.02, ay - r * 0.01, r * 0.014, P.pupil); circ(ctx, ax + r * 0.02, ay - r * 0.01, r * 0.014, P.pupil); }
+    ell(ctx, x - r * 0.45, y + r * 0.4, r * 0.2, r * 0.07, "#C2410C");
+    ctx.restore(); shade();
+    onLimb(ctx, x, y, r, -140, () => drawVolcano(ctx, t));
+    onLimb(ctx, x, y, r, -105 + Math.sin(t * 0.5) * 9, () => drawRover(ctx, t));
+    onLimb(ctx, x, y, r, -68, () => drawAlien(ctx, t, P.pink, P.pinkLip, 1.3));
+  } else if (kind === "jupiter") {
+    glow("#FFE0A8"); disc("#F2C27B", "#C98E55");
+    ctx.save(); ell(ctx, x, y, r, r); ctx.clip();
+    [[-0.72, 0.16, "#E39A57"], [-0.42, 0.1, "#FBE3BE"], [-0.18, 0.2, "#D98A4E"], [0.16, 0.12, "#FBE3BE"], [0.4, 0.2, "#E39A57"], [0.72, 0.14, "#D98A4E"]].forEach(([v, hh, c], i) => {
+      ctx.beginPath();
+      for (let k = 0; k <= 20; k++) { const xx = x - r + k * r / 10, yy = y + v * r + Math.sin(k * 0.9 + t * 0.6 + i) * r * 0.025; k ? ctx.lineTo(xx, yy) : ctx.moveTo(xx, yy); }
+      for (let k = 20; k >= 0; k--) { const xx = x - r + k * r / 10, yy = y + (v + hh) * r + Math.sin(k * 0.9 + t * 0.6 + i + 1) * r * 0.025; ctx.lineTo(xx, yy); }
+      ctx.closePath(); ctx.fillStyle = c; ctx.fill();
+    });
+    // the great red spot, slowly swirling
+    ctx.save(); ctx.translate(x + r * 0.3, y + r * 0.3); ctx.rotate(t * 0.4); ell(ctx, 0, 0, r * 0.22, r * 0.13, "#C2410C"); ell(ctx, 0, 0, r * 0.13, r * 0.07, "#F26B3A"); ctx.restore();
+    ctx.restore(); shade();
+    // two little moons and a satellite in orbit
+    [[1.35, 0.5, 0.09, "#D5DDE2", 0], [1.6, 0.35, 0.065, "#8FE9FF", 2.2]].forEach(([orb, sp, mr, c, ph]) => {
+      const a = t * sp + ph, mx = x + Math.cos(a) * r * orb, my = y + Math.sin(a) * r * orb * 0.32;
+      if (Math.sin(a) > 0 || Math.hypot(mx - x, my - y) > r) { circ(ctx, mx, my + r * mr * 0.12, r * mr, "rgba(0,0,0,0.25)"); circ(ctx, mx, my, r * mr, c); }
+    });
+    onLimb(ctx, x, y, r, -78, () => { ctx.translate(0, -16 + Math.sin(t * 2) * 4); drawAlien(ctx, t, P.purple, P.purpleLip, 2.2);   // floating on a hover-disc
+      ell(ctx, 0, 3, 16, 4, "#B9C7D1"); ctx.globalAlpha = 0.5; ell(ctx, 0, 9, 9, 3, "#8FE9FF"); ctx.globalAlpha = 1; });
+  } else {   // Planet Zoom: ringed, with a domed alien city and a welcome party
+    glow("#E7CBFF");
+    const ring = (a0, a1) => { ctx.save(); ctx.translate(x, y); ctx.rotate(-0.35);
+      ctx.lineWidth = r * 0.17; ctx.strokeStyle = "#FFE46B"; ctx.beginPath(); ctx.ellipse(0, 0, r * 1.65, r * 0.5, 0, a0, a1); ctx.stroke();
+      ctx.lineWidth = r * 0.05; ctx.strokeStyle = "#FFB84D"; ctx.beginPath(); ctx.ellipse(0, 0, r * 1.5, r * 0.44, 0, a0, a1); ctx.stroke(); ctx.restore(); };
+    ring(Math.PI, Math.PI * 2);
+    disc(P.purple, P.purpleLip);
+    ctx.save(); ell(ctx, x, y, r, r); ctx.clip();
+    ell(ctx, x - r * 0.2, y + r * 0.3, r * 0.6, r * 0.16, "rgba(255,255,255,0.14)", -0.2); ell(ctx, x + r * 0.3, y - r * 0.25, r * 0.4, r * 0.12, "rgba(123,63,201,0.5)", 0.2);
+    [[-0.5, -0.2, 0.12], [0.4, 0.45, 0.16]].forEach(c => crater(...c));
+    ctx.restore(); shade();
+    ring(0, Math.PI);
+    onLimb(ctx, x, y, r, -90, () => drawDomeCity(ctx, t));
+    onLimb(ctx, x, y, r, -128, () => drawAlien(ctx, t, P.green, P.greenLip, 0.4));
+    onLimb(ctx, x, y, r, -142, () => drawAlien(ctx, t, P.yellow, P.yellowLip, 1.7, 1));
+    onLimb(ctx, x, y, r, -52, () => drawAlien(ctx, t, P.blue, P.blueLip, 2.9));
+    onLimb(ctx, x, y, r, -38, () => drawFlag(ctx, t, P.red));
+  }
+}
+/** things that drift past the window between planets: comets, asteroids, a UFO, a satellite */
+function drawFlyby(ctx, wx, wy, ww, wh, t) {
+  const period = 4.2, k = Math.floor(t / period), u = (t - k * period) / 2.6;
+  if (u >= 1) return;
+  const kind = k % 4, a = hash(k * 3.3), fromLeft = a < 0.5, dir = fromLeft ? 1 : -1;
+  const y0 = wy + wh * (0.1 + hash(k * 5.1) * 0.4), x = fromLeft ? wx - 50 + u * (ww + 100) : wx + ww + 50 - u * (ww + 100);
+  if (kind === 0) {         // comet
+    const y = y0 + u * wh * 0.3, tail = ww * 0.3;
+    const tg = ctx.createLinearGradient(x, y, x - dir * tail, y - tail * 0.3);
+    tg.addColorStop(0, "rgba(180,240,255,0.95)"); tg.addColorStop(1, "rgba(180,240,255,0)");
+    ctx.strokeStyle = tg; ctx.lineWidth = 8; ctx.lineCap = "round"; ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x - dir * tail, y - tail * 0.3); ctx.stroke(); ctx.lineCap = "butt";
+    circ(ctx, x, y, 7, "#fff"); circ(ctx, x, y, 4, "#BDE8FF");
+    for (let i = 0; i < 4; i++) sparkle(ctx, x - dir * (14 + i * 14), y - (4 + i * 4) + Math.sin(t * 9 + i) * 3, 7 - i, "#fff");
+  } else if (kind === 1) {  // tumbling asteroids
+    for (const [dx, dy, sz, sp] of [[0, 0, 22, 1.4], [-46, 26, 13, -2.2], [-24, -30, 9, 3]]) {
+      ctx.save(); ctx.translate(x + dir * dx, y0 + dy + u * 20); ctx.rotate(t * sp);
+      ctx.beginPath(); for (let i = 0; i < 8; i++) { const an = i / 8 * Math.PI * 2, rr = sz * (0.75 + 0.3 * hash(i * 7 + sz)); i ? ctx.lineTo(Math.cos(an) * rr, Math.sin(an) * rr) : ctx.moveTo(Math.cos(an) * rr, Math.sin(an) * rr); }
+      ctx.closePath(); ctx.fillStyle = "#8B6B4E"; ctx.fill(); ctx.lineWidth = 2; ctx.strokeStyle = "#5E4630"; ctx.stroke();
+      circ(ctx, -sz * 0.25, -sz * 0.15, sz * 0.22, "#6F543B"); circ(ctx, sz * 0.3, sz * 0.25, sz * 0.14, "#6F543B");
+      ctx.restore();
+    }
+  } else if (kind === 2) {  // flying saucer with an alien pilot
+    const y = y0 + Math.sin(t * 5) * 8;
+    ctx.save(); ctx.translate(x, y); ctx.rotate(Math.sin(t * 4) * 0.12);
+    ctx.globalAlpha = 0.25; ctx.beginPath(); ctx.moveTo(-10, 6); ctx.lineTo(10, 6); ctx.lineTo(24, 46); ctx.lineTo(-24, 46); ctx.closePath(); ctx.fillStyle = "#8FF0E6"; ctx.fill(); ctx.globalAlpha = 1;
+    ctx.beginPath(); ctx.arc(0, -4, 15, Math.PI, 0); ctx.closePath(); ctx.fillStyle = "rgba(143,233,255,0.75)"; ctx.fill();
+    circ(ctx, 0, -8, 6, P.green); circ(ctx, -2, -9, 1.5, P.pupil); circ(ctx, 2, -9, 1.5, P.pupil);
+    ell(ctx, 0, 2, 32, 9, "#7F8C99"); ell(ctx, 0, 0, 32, 9, "#C9D3D9");
+    for (let i = -2; i <= 2; i++) circ(ctx, i * 12, 1, 2.6, (Math.floor(t * 6) + i + 9) % 3 === 0 ? P.yellow : P.red);
+    ctx.restore();
+  } else {                  // satellite
+    ctx.save(); ctx.translate(x, y0 + u * wh * 0.15); ctx.rotate(-0.4 + Math.sin(t) * 0.1);
+    for (const sx of [-1, 1]) { fillRR(ctx, sx > 0 ? 9 : -37, -8, 28, 16, 2, "#1F6FB5"); ctx.strokeStyle = "#8FD3FF"; ctx.lineWidth = 1;
+      for (let i = 1; i < 4; i++) { ctx.beginPath(); ctx.moveTo((sx > 0 ? 9 : -37) + i * 7, -8); ctx.lineTo((sx > 0 ? 9 : -37) + i * 7, 8); ctx.stroke(); } }
+    fillRR(ctx, -9, -11, 18, 22, 4, "#DDE5EA"); fillRR(ctx, -9, -11, 18, 6, 3, P.yellow);
+    fillRR(ctx, -1, -22, 2, 11, 1, "#9AA7B0"); circ(ctx, 0, -23, 3, (Math.floor(t * 3) % 2) ? P.red : "#7F1D1D");
+    ctx.restore();
+  }
+}
+/** round dial with a swinging needle */
+function drawDial(ctx, x, y, r, value, color, label) {
+  circ(ctx, x, y + 2, r, "#10233A"); circ(ctx, x, y, r, "#0B1A2C");
+  ctx.lineWidth = r * 0.16; ctx.lineCap = "round";
+  ctx.strokeStyle = "rgba(255,255,255,0.15)"; ctx.beginPath(); ctx.arc(x, y, r * 0.72, Math.PI * 0.8, Math.PI * 2.2); ctx.stroke();
+  ctx.strokeStyle = color; ctx.beginPath(); ctx.arc(x, y, r * 0.72, Math.PI * 0.8, Math.PI * (0.8 + 1.4 * value)); ctx.stroke(); ctx.lineCap = "butt";
+  const a = Math.PI * (0.8 + 1.4 * value);
+  ctx.strokeStyle = "#fff"; ctx.lineWidth = Math.max(1.5, r * 0.09); ctx.lineCap = "round"; ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x + Math.cos(a) * r * 0.6, y + Math.sin(a) * r * 0.6); ctx.stroke(); ctx.lineCap = "butt";
+  circ(ctx, x, y, r * 0.14, "#fff");
+  if (label) { ctx.font = `900 ${Math.max(6, r * 0.34)}px Nunito, ui-rounded, system-ui, sans-serif`; ctx.textAlign = "center"; ctx.textBaseline = "middle"; ctx.fillStyle = "#8FD3FF"; ctx.fillText(label, x, y + r * 0.5); }
+}
 function drawCockpit(ctx, w, h, p, t, opts = {}) {
   const mini = !!opts.mini, st = cockpitState(mini ? "mini" : "main");
   const dt = st.last == null ? 0 : Math.min(t - st.last, 0.1); st.last = t;
   const moving = opts.moving !== false && p < 1;
-  // layout: window on the left, distance gauge on the right, console along the bottom
+  // layout: switches along the top, window on the left, distance gauge on the right, console along the bottom
+  const top = mini ? 0 : h * 0.065;
   const gw = mini ? w * 0.2 : Math.max(58, w * 0.18), gap = mini ? 3 : 8;
-  const winX = mini ? 3 : 6, winY = mini ? 3 : 6, winW = w - gw - gap - winX * 2, consoleTop = h * (mini ? 0.78 : 0.76);
-  const winH = consoleTop - winY + h * 0.06, wr = mini ? 10 : 26;
+  const winX = mini ? 3 : 8, winY = top + (mini ? 3 : 4), winW = w - gw - gap - winX * 2, consoleTop = h * (mini ? 0.78 : 0.7);
+  const winH = consoleTop - winY + h * 0.05, wr = mini ? 10 : 28;
   // cockpit walls
   fillRR(ctx, 0, 0, w, h, mini ? 12 : 22, "#1B3550");
-  ctx.fillStyle = "#234466"; ctx.fillRect(0, 0, w, h * 0.05);
-  if (!mini) { for (const [x, y] of [[w * 0.02, h * 0.3], [w * 0.02, h * 0.55]]) { fillRR(ctx, x - 2, y, 8, h * 0.12, 3, "#3BD16F"); } }
+  if (!mini) {
+    // overhead panel: toggle switches and status lights
+    fillRR(ctx, 0, 0, w, top + 6, 14, "#27496E"); ctx.fillStyle = "#1B3550"; ctx.fillRect(0, top, w, 8);
+    const n = 13;
+    for (let i = 0; i < n; i++) {
+      const x = w * 0.06 + i * (w * 0.88 / (n - 1)), cy0 = top * 0.5;
+      if (i % 3 === 1) { fillRR(ctx, x - 3, cy0 - 5, 6, 10, 3, "#0B1A2C"); const up = Math.floor(t * 0.7 + i) % 2 === 0; circ(ctx, x, cy0 + (up ? -3 : 3), 3, "#DDE5EA"); }
+      else { const on = (Math.floor(t * (1.5 + (i % 4) * 0.4) + i * 1.7) % 3) !== 0; ctx.globalAlpha = on ? 1 : 0.3; circ(ctx, x, cy0, 3.2, [P.green, P.yellow, P.red, "#4FE3FF", P.orange][i % 5]); ctx.globalAlpha = 1; }
+    }
+  }
   // ---- the window
   ctx.save(); rrect(ctx, winX, winY, winW, winH, wr); ctx.clip();
   const g = ctx.createLinearGradient(0, winY, 0, winY + winH);
-  g.addColorStop(0, "#1A1250"); g.addColorStop(0.6, "#3A2A9E"); g.addColorStop(1, "#2B5FC2");
+  g.addColorStop(0, "#150E45"); g.addColorStop(0.55, "#33248F"); g.addColorStop(1, "#2B5FC2");
   ctx.fillStyle = g; ctx.fillRect(winX, winY, winW, winH);
   const cx = winX + winW / 2, cy = winY + winH * 0.42;
-  // nebula glow
-  const neb = ctx.createRadialGradient(cx + winW * 0.2, cy - winH * 0.1, 0, cx + winW * 0.2, cy - winH * 0.1, winW * 0.6);
-  neb.addColorStop(0, "rgba(255,138,210,0.22)"); neb.addColorStop(1, "rgba(255,138,210,0)"); ctx.fillStyle = neb; ctx.fillRect(winX, winY, winW, winH);
+  // nebula clouds
+  for (const [nx, ny, nr, c] of [[0.25, -0.12, 0.55, "255,138,210"], [-0.3, 0.2, 0.5, "79,227,255"], [0.05, 0.3, 0.4, "184,118,255"]]) {
+    const neb = ctx.createRadialGradient(cx + winW * nx, cy + winH * ny, 0, cx + winW * nx, cy + winH * ny, winW * nr);
+    neb.addColorStop(0, `rgba(${c},0.2)`); neb.addColorStop(1, `rgba(${c},0)`); ctx.fillStyle = neb; ctx.fillRect(winX, winY, winW, winH);
+  }
   // stars streaming toward us
   const speed = moving ? 0.22 : 0;
   for (const s of st.stars) {
@@ -1178,98 +1367,120 @@ function drawCockpit(ctx, w, h, p, t, opts = {}) {
     if (s.z <= 0.04) { s.z = 1; s.x = Math.random() * 2 - 1; s.y = Math.random() * 2 - 1; continue; }
     const k = winW * 0.35, x1 = cx + s.x / s.z * k, y1 = cy + s.y / s.z * k, x0 = cx + s.x / z0 * k, y0 = cy + s.y / z0 * k;
     if (x1 < winX - 10 || x1 > winX + winW + 10 || y1 < winY - 10 || y1 > winY + winH + 10) { s.z = 1; continue; }
-    const size = Math.max(0.6, (1 - s.z) * (mini ? 1.6 : 3));
+    const size = Math.max(0.6, (1 - s.z) * (mini ? 1.6 : 3.2));
     ctx.globalAlpha = Math.min(1, (1 - s.z) * 1.6);
     ctx.strokeStyle = s.c; ctx.lineWidth = size; ctx.lineCap = "round";
-    ctx.beginPath(); ctx.moveTo(x0, y0); ctx.lineTo(x1 + (x1 - x0) * 0.3, y1 + (y1 - y0) * 0.3); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(x0, y0); ctx.lineTo(x1 + (x1 - x0) * 0.4, y1 + (y1 - y0) * 0.4); ctx.stroke();
   }
   ctx.globalAlpha = 1; ctx.lineCap = "butt";
-  // comets now and then
-  if (!mini) {
-    const period = 6.5, k = Math.floor(t / period), u = (t - k * period) / 2.2;
-    if (u < 1) {
-      const a = hash(k * 3.3), fromLeft = a < 0.5, y0 = winY + winH * (0.08 + hash(k * 5.1) * 0.35);
-      const x = fromLeft ? winX - 40 + u * (winW + 80) : winX + winW + 40 - u * (winW + 80), y = y0 + u * winH * 0.35;
-      const dx = fromLeft ? -1 : 1, tail = winW * 0.28;
-      const tg = ctx.createLinearGradient(x, y, x + dx * tail, y - tail * 0.35);
-      tg.addColorStop(0, "rgba(180,240,255,0.95)"); tg.addColorStop(1, "rgba(180,240,255,0)");
-      ctx.strokeStyle = tg; ctx.lineWidth = 7; ctx.lineCap = "round";
-      ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x + dx * tail, y - tail * 0.35); ctx.stroke(); ctx.lineCap = "butt";
-      circ(ctx, x, y, 6, "#fff"); circ(ctx, x, y, 3.5, "#BDE8FF");
-    }
-  }
   // planets: tiny and far away, then growing faster and faster until they whoosh past
-  const base = winH * 0.95;
+  const base = winH * 0.95, planet = mini ? drawPlanet : drawBigPlanet;
   for (const f of FLYBYS) {
     if (p < f.from || p > f.to) continue;
     const u = (p - f.from) / (f.to - f.from), zz = Math.pow(14, 1 - u);
-    const r = base / zz, x = cx + f.side * winW * 0.95 / zz * (1 + u * 0.6), y = cy + f.dy * winH / zz + winH * 0.05 * u;
-    drawPlanet(ctx, f.kind, x, y, r, t);
-    if (!mini && u < 0.7) {
+    const r = base / zz, x = cx + f.side * winW * 0.8 / zz * (1 + u * 0.6), y = cy + f.dy * winH / zz + winH * 0.12 * u;
+    planet(ctx, f.kind, x, y, r, t);
+    if (!mini && u < 0.55) {
       ctx.font = `900 13px Nunito, ui-rounded, system-ui, sans-serif`; ctx.textAlign = "center"; ctx.textBaseline = "top";
-      ctx.fillStyle = "rgba(255,255,255,0.85)"; ctx.fillText(f.name, x, y + r + 6);
+      ctx.fillStyle = "rgba(255,255,255,0.85)"; ctx.fillText(f.name, x, y + r * 1.08 + 6);
     }
   }
   // destination: grows from a dot to filling the window as we arrive
   if (p > 0.66) {
-    const u = Math.min((p - 0.66) / 0.34, 1), zz = Math.pow(12, 1 - u) * 1.25;
-    const r = base * 0.75 / zz, x = cx, y = cy + winH * 0.1 * u;
-    drawPlanet(ctx, "dest", x, y, r, t);
-    if (!mini && u < 0.85) { ctx.font = `900 14px Nunito, ui-rounded, system-ui, sans-serif`; ctx.textAlign = "center"; ctx.textBaseline = "top"; ctx.fillStyle = "#FFE46B"; ctx.fillText("Planet Zoom", x, y + r * 1.1 + 6); }
+    const u = Math.min((p - 0.66) / 0.34, 1), zz = Math.pow(12, 1 - u) * 1.9;
+    const r = base * 0.75 / zz, x = cx, y = cy + winH * 0.2 * u;
+    planet(ctx, "dest", x, y, r, t);
+    if (!mini && u < 0.6) { ctx.font = `900 14px Nunito, ui-rounded, system-ui, sans-serif`; ctx.textAlign = "center"; ctx.textBaseline = "top"; ctx.fillStyle = "#FFE46B"; ctx.fillText("Planet Zoom", x, y + r * 1.1 + 6); }
+    // welcome fireworks just before landing
+    if (!mini && u > 0.8) for (let i = 0; i < 3; i++) { const fu = (t * 0.9 + i * 0.33) % 1, fx = winX + winW * (0.2 + i * 0.3), fy = winY + winH * (0.18 + 0.1 * (i % 2));
+      ctx.globalAlpha = 1 - fu; for (let k = 0; k < 10; k++) { const an = k / 10 * Math.PI * 2; circ(ctx, fx + Math.cos(an) * fu * 26, fy + Math.sin(an) * fu * 26, 2.2, [P.yellow, P.pink, "#4FE3FF"][i]); } ctx.globalAlpha = 1; }
   }
+  if (!mini && moving) drawFlyby(ctx, winX, winY, winW, winH, t);
   // glass shine
-  ctx.globalAlpha = 0.12; ctx.fillStyle = "#fff";
+  ctx.globalAlpha = 0.1; ctx.fillStyle = "#fff";
   ctx.beginPath(); ctx.moveTo(winX, winY + winH * 0.55); ctx.lineTo(winX + winW * 0.35, winY); ctx.lineTo(winX + winW * 0.5, winY); ctx.lineTo(winX, winY + winH * 0.8); ctx.closePath(); ctx.fill();
+  ctx.beginPath(); ctx.moveTo(winX + winW * 0.62, winY); ctx.lineTo(winX + winW * 0.68, winY); ctx.lineTo(winX + winW * 0.3, winY + winH); ctx.lineTo(winX + winW * 0.24, winY + winH); ctx.closePath(); ctx.fill();
   ctx.globalAlpha = 1;
   ctx.restore();
-  rrect(ctx, winX, winY, winW, winH, wr); ctx.lineWidth = mini ? 3 : 6; ctx.strokeStyle = "#4FE3FF"; ctx.stroke();
+  // window frame: dark outer band, glowing inner edge, rivets
+  rrect(ctx, winX, winY, winW, winH, wr); ctx.lineWidth = mini ? 4 : 10; ctx.strokeStyle = "#2C4F73"; ctx.stroke();
+  rrect(ctx, winX, winY, winW, winH, wr); ctx.lineWidth = mini ? 2 : 3.5; ctx.strokeStyle = "#4FE3FF"; ctx.stroke();
+  if (!mini) {
+    for (let i = 0; i <= 6; i++) { const rx = winX + wr + i * (winW - wr * 2) / 6; circ(ctx, rx, winY - 1, 2, "#8FB4D6"); }
+    for (let i = 0; i <= 4; i++) { const ry = winY + wr + i * (consoleTop - winY - wr * 1.2) / 4; circ(ctx, winX - 1, ry, 2, "#8FB4D6"); circ(ctx, winX + winW + 1, ry, 2, "#8FB4D6"); }
+  }
   // ---- console along the bottom
-  const ct = consoleTop;
+  const ct = consoleTop, ch = h - ct;
   ctx.beginPath(); ctx.moveTo(0, h); ctx.lineTo(0, ct + h * 0.06); ctx.quadraticCurveTo(w * 0.04, ct, w * 0.12, ct); ctx.lineTo(w * 0.88, ct); ctx.quadraticCurveTo(w * 0.96, ct, w, ct + h * 0.06); ctx.lineTo(w, h); ctx.closePath();
   ctx.fillStyle = "#2C4F73"; ctx.fill();
   ctx.fillStyle = "#3E6A94"; ctx.fillRect(w * 0.1, ct, w * 0.8, mini ? 2 : 4);
   if (!mini) {
-    const sh = (h - ct) * 0.5, sy = ct + (h - ct) * 0.22;
-    for (const sx of [w * 0.05, w * 0.73]) {
-      fillRR(ctx, sx, sy, w * 0.2, sh, 8, "#1E7A45"); fillRR(ctx, sx + 3, sy + 3, w * 0.2 - 6, sh - 6, 6, "#3BD16F");
-      ctx.strokeStyle = "rgba(10,60,30,0.6)"; ctx.lineWidth = 2; ctx.beginPath();
-      for (let i = 0; i <= 12; i++) { const xx = sx + 6 + i * (w * 0.2 - 12) / 12, yy = sy + sh / 2 + Math.sin(i * 0.9 + t * 3 + sx) * sh * 0.25; i ? ctx.lineTo(xx, yy) : ctx.moveTo(xx, yy); }
-      ctx.stroke();
+    ctx.fillStyle = "#234466"; ctx.fillRect(0, ct + ch * 0.62, w, ch * 0.38);
+    const sy = ct + ch * 0.14, sh = ch * 0.42;
+    // left screen: wobbly signal line
+    const lx = w * 0.035, lw = w * 0.19;
+    fillRR(ctx, lx, sy, lw, sh, 7, "#145A32"); fillRR(ctx, lx + 3, sy + 3, lw - 6, sh - 6, 5, "#3BD16F");
+    ctx.strokeStyle = "rgba(10,60,30,0.65)"; ctx.lineWidth = 2; ctx.beginPath();
+    for (let i = 0; i <= 14; i++) { const xx = lx + 6 + i * (lw - 12) / 14, yy = sy + sh / 2 + Math.sin(i * 0.9 + t * 3) * sh * 0.22 * Math.sin(i * 0.4 + t); i ? ctx.lineTo(xx, yy) : ctx.moveTo(xx, yy); }
+    ctx.stroke();
+    // radar with a sweeping line and blips
+    const rx = w * 0.31, ry = sy + sh / 2, rr = sh * 0.56;
+    circ(ctx, rx, ry + 2, rr + 3, "#10233A"); circ(ctx, rx, ry, rr, "#0E3B24");
+    ctx.strokeStyle = "rgba(59,209,111,0.5)"; ctx.lineWidth = 1; for (const k of [0.4, 0.75]) { ctx.beginPath(); ctx.arc(rx, ry, rr * k, 0, Math.PI * 2); ctx.stroke(); }
+    ctx.beginPath(); ctx.moveTo(rx - rr, ry); ctx.lineTo(rx + rr, ry); ctx.moveTo(rx, ry - rr); ctx.lineTo(rx, ry + rr); ctx.stroke();
+    const sw = t * 2.2;
+    ctx.save(); ctx.beginPath(); ctx.moveTo(rx, ry); ctx.arc(rx, ry, rr, sw - 0.7, sw); ctx.closePath(); ctx.fillStyle = "rgba(59,209,111,0.35)"; ctx.fill(); ctx.restore();
+    ctx.strokeStyle = "#7CFFB0"; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.moveTo(rx, ry); ctx.lineTo(rx + Math.cos(sw) * rr, ry + Math.sin(sw) * rr); ctx.stroke();
+    for (const [ba, bd] of [[0.6, 0.55], [2.4, 0.8], [4.4, 0.35]]) { const fade = 1 - (((sw - ba) % (Math.PI * 2)) + Math.PI * 2) % (Math.PI * 2) / (Math.PI * 2); ctx.globalAlpha = fade; circ(ctx, rx + Math.cos(ba) * rr * bd, ry + Math.sin(ba) * rr * bd, 2.2, "#C8FFD9"); ctx.globalAlpha = 1; }
+    // middle: two rows of blinking buttons
+    const bx0 = w * 0.41, bw = w * 0.18, cols = 5;
+    for (let row = 0; row < 2; row++) for (let i = 0; i < cols; i++) {
+      const bx = bx0 + i * bw / (cols - 1), byy = sy + sh * (0.22 + row * 0.5), on = (Math.floor(t * (1 + ((i + row) % 3) * 0.6) + i * 1.3 + row) % 2) === 0;
+      const col = [P.red, P.yellow, P.green, "#4FE3FF", P.orange, P.pink][(i + row * 2) % 6];
+      fillRR(ctx, bx - 5, byy - 4 + 2, 10, 8, 3, "#10233A"); ctx.globalAlpha = on ? 1 : 0.4; fillRR(ctx, bx - 5, byy - 4, 10, 8, 3, col); ctx.globalAlpha = 1;
     }
-    // blinking buttons
-    [[0.29, P.orange], [0.33, P.green], [0.67, P.red], [0.71, P.yellow]].forEach(([u, c], i) => {
-      ctx.globalAlpha = (Math.floor(t * 2 + i * 0.7) % 2) ? 1 : 0.45; circ(ctx, w * u, ct + (h - ct) * 0.45, 5, c); ctx.globalAlpha = 1;
-    });
+    // dials: speed and fuel
+    const dr = sh * 0.5;
+    drawDial(ctx, w * 0.685, sy + sh / 2, dr, moving ? 0.72 + Math.sin(t * 5) * 0.06 : 0.05, "#4FE3FF", "SPEED");
+    drawDial(ctx, w * 0.685 + dr * 2.3, sy + sh / 2, dr, Math.max(0.06, 1 - p * 0.9), p > 0.8 ? P.red : P.green, "FUEL");
+    // right screen: bouncing bar meters
+    const qx = w * 0.865, qw = w * 0.105;
+    fillRR(ctx, qx, sy, qw, sh, 7, "#145A32"); fillRR(ctx, qx + 3, sy + 3, qw - 6, sh - 6, 5, "#0E3B24");
+    for (let i = 0; i < 4; i++) { const bh = (sh - 12) * (0.3 + 0.6 * Math.abs(Math.sin(t * (2 + i * 0.7) + i))); fillRR(ctx, qx + 6 + i * (qw - 12) / 4, sy + sh - 6 - bh, (qw - 12) / 4 - 2, bh, 1.5, i === 3 ? P.yellow : "#3BD16F"); }
+    // lower strip: sliders, vents and a keypad (the time pill sits over the middle)
+    const ly = ct + ch * 0.74;
+    for (let i = 0; i < 3; i++) { const sx = w * (0.05 + i * 0.055); fillRR(ctx, sx, ly, 5, ch * 0.2, 2.5, "#0B1A2C"); const k = 0.5 + 0.45 * Math.sin(t * (0.8 + i * 0.3) + i * 2); fillRR(ctx, sx - 3, ly + (ch * 0.2 - 6) * k, 11, 6, 2, [P.orange, "#4FE3FF", P.green][i]); }
+    for (let i = 0; i < 4; i++) fillRR(ctx, w * 0.24, ly + i * ch * 0.055, w * 0.09, 2.5, 1, "#10233A");
+    for (let i = 0; i < 6; i++) fillRR(ctx, w * (0.7 + (i % 3) * 0.035), ly + Math.floor(i / 3) * ch * 0.11, w * 0.026, ch * 0.08, 2, i === ((Math.floor(t * 2)) % 6) ? "#fff" : "#8FB4D6");
+    ctx.globalAlpha = (Math.floor(t * 1.5) % 2) ? 1 : 0.35; fillRR(ctx, w * 0.85, ly, w * 0.11, ch * 0.19, 4, p > 0.9 ? P.green : P.red); ctx.globalAlpha = 1;
+    ctx.font = `900 ${Math.max(6, ch * 0.09)}px Nunito, ui-rounded, system-ui, sans-serif`; ctx.textAlign = "center"; ctx.textBaseline = "middle"; ctx.fillStyle = "#fff"; ctx.fillText(p > 0.9 ? "LAND" : "WARP", w * 0.905, ly + ch * 0.1);
   }
   // ---- distance gauge
   const gx = w - gw - (mini ? 3 : 6), gy = winY, gh = consoleTop - winY - (mini ? 4 : 10);
   fillRR(ctx, gx, gy + 4, gw, gh, mini ? 8 : 16, "#10233A"); fillRR(ctx, gx, gy, gw, gh, mini ? 8 : 16, "#234466");
+  if (!mini) { rrect(ctx, gx + 2, gy + 2, gw - 4, gh - 4, 14); ctx.lineWidth = 1.5; ctx.strokeStyle = "rgba(79,227,255,0.5)"; ctx.stroke(); }
   const labelH = mini ? 0 : 40, tubeX = gx + gw * 0.5 - (mini ? 5 : 9), tubeW = mini ? 10 : 18;
   const tubeTop = gy + labelH + (mini ? 10 : 30), tubeBot = gy + gh - (mini ? 8 : 16), tubeH = tubeBot - tubeTop;
   if (!mini) {
     ctx.textAlign = "center"; ctx.textBaseline = "top"; ctx.fillStyle = "#8FD3FF"; ctx.font = "900 10px Nunito, ui-rounded, system-ui, sans-serif";
-    ctx.fillText("MILES LEFT", gx + gw / 2, gy + 6);
+    ctx.fillText("MILES LEFT", gx + gw / 2, gy + 7);
     ctx.fillStyle = "#fff"; ctx.font = `900 ${Math.min(20, gw * 0.34)}px Nunito, ui-rounded, system-ui, sans-serif`;
-    ctx.fillText(String(Math.ceil((1 - p) * 1000)), gx + gw / 2, gy + 19);
+    ctx.fillText(String(Math.ceil((1 - p) * 1000)), gx + gw / 2, gy + 20);
   }
   fillRR(ctx, tubeX, tubeTop, tubeW, tubeH, tubeW / 2, "#0B1A2C");
   const fillH = Math.max(tubeW, tubeH * p);
   const fg = ctx.createLinearGradient(0, tubeBot, 0, tubeTop); fg.addColorStop(0, P.blue); fg.addColorStop(1, "#4FE3FF");
   rrect(ctx, tubeX, tubeBot - fillH, tubeW, fillH, tubeW / 2); ctx.fillStyle = fg; ctx.fill();
   ctx.globalAlpha = 0.45; fillRR(ctx, tubeX + tubeW * 0.2, tubeBot - fillH + 4, tubeW * 0.22, Math.max(fillH - 8, 0), 3, "#fff"); ctx.globalAlpha = 1;
-  // tick marks
+  if (!mini && moving) for (let i = 0; i < 3; i++) { const bu = (t * 0.5 + i * 0.33) % 1; ctx.globalAlpha = 0.6 * (1 - bu); circ(ctx, tubeX + tubeW * (0.35 + 0.3 * (i % 2)), tubeBot - 4 - bu * Math.max(fillH - 10, 0), 2, "#fff"); ctx.globalAlpha = 1; }
   for (let i = 1; i < 10; i++) { const yy = tubeBot - tubeH * i / 10; ctx.fillStyle = "rgba(255,255,255,0.35)"; ctx.fillRect(tubeX - (mini ? 3 : 6), yy - 0.5, mini ? 2 : 4, 1); }
   // planets along the gauge: they light up when passed
-  const stops = [["earth", 0], ["moon", 0.25], ["mars", 0.5], ["jupiter", 0.75], ["dest", 1]];
-  for (const [kind, u] of stops) {
+  for (const [kind, u] of [["earth", 0], ["moon", 0.25], ["mars", 0.5], ["jupiter", 0.75], ["dest", 1]]) {
     const yy = tubeBot - tubeH * u, px = tubeX + tubeW + (mini ? 6 : 12), pr = mini ? 3.5 : (kind === "dest" ? 8 : 6.5);
     ctx.globalAlpha = p >= u - 0.001 ? 1 : 0.4; drawPlanet(ctx, kind, px, yy, pr, t); ctx.globalAlpha = 1;
   }
   // rocket marker riding the gauge
-  if (!mini || true) {
-    const ry = tubeBot - fillH + tubeW / 2;
-    drawRocket(ctx, tubeX + tubeW / 2 - (mini ? 0 : 0), ry - (mini ? 6 : 12), mini ? 13 : 26, -Math.PI / 2, t, moving);
-  }
+  drawRocket(ctx, tubeX + tubeW / 2, tubeBot - fillH + tubeW / 2 - (mini ? 6 : 12), mini ? 13 : 26, -Math.PI / 2, t, moving);
   return h;
 }
 function drawRocketTimer(ctx, w, h, sess, t) { return drawCockpit(ctx, w, h, sess.progress, t, { moving: !sess.paused }); }
