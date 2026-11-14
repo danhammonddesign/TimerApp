@@ -1453,7 +1453,7 @@ function drawCockpit(ctx, w, h, p, t, opts = {}) {
       fillRR(ctx, bx - 5, byy - 4 + 2, 10, 8, 3, "#10233A"); ctx.globalAlpha = on ? 1 : 0.4; fillRR(ctx, bx - 5, byy - 4, 10, 8, 3, col); ctx.globalAlpha = 1;
     }
     // dials: speed and fuel
-    const dr = sh * 0.5;
+    const dr = Math.min(sh * 0.5, w * 0.06);
     drawDial(ctx, w * 0.685, sy + sh / 2, dr, moving ? 0.72 + Math.sin(t * 5) * 0.06 : 0.05, "#4FE3FF", "SPEED");
     drawDial(ctx, w * 0.685 + dr * 2.3, sy + sh / 2, dr, Math.max(0.06, 1 - p * 0.9), p > 0.8 ? P.red : P.green, "FUEL");
     // right screen: bouncing bar meters
@@ -1790,6 +1790,8 @@ const UI = {
     mouthState.bx = null;
     const segs = $("segs"); segs.innerHTML = ZONES.map(() => '<div class="seg"><i></i></div>').join("");
     $("bubbleRow").classList.toggle("side", th.timer !== "ring");
+    // the rocket cockpit gets the whole top of the screen; the narrator still reads each instruction
+    $("bubbleRow").hidden = th.timer === "rocket";
     $("sideMascot").hidden = th.timer === "ring";
     $("zoneBubble").className = "bubble " + (th.timer === "ring" ? "tail-down" : "tail-left");
     this.onZone(true);
