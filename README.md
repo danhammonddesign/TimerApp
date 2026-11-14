@@ -24,7 +24,7 @@ the side of the mouth being brushed, scrubs with a toothbrush and wears a costum
   - *Marble Drop* — a plinko board: marbles bounce down the pegs and pile up; the board is completely full the moment time runs out.
   - *Sand Art* — rainbow sand pours into a jar shaped like a cat, puppy or shark (random each time). Every brushing zone adds a new color layer.
   - *Ocean Dive* — the same sand timer, in a crab-shaped jar.
-  - *Rocket Brush* (web) — a rocket flies a winding route from Earth past the Moon, Mars and Jupiter to Planet Zoom; the trail behind is solid, the way ahead is dotted, and passed planets get a check.
+  - *Rocket Brush* (web) — a spaceship cockpit: stars and comets stream past the window, the Moon, Mars and Jupiter grow closer and fly by, Planet Zoom fills the window on arrival, and a big gauge counts down the miles left.
   - *Dino Stomp* (web) — a coloring book: a crayon colors in a T. rex, triceratops, stegosaurus or long-neck, part by part, until the page is done.
   - *Secret Picture* — a 5×6 grid of tiles; every few seconds one wobbles and flips away. When time's up, a cute cat or puppy is revealed.
   - The other themes use the big countdown ring with Chompy inside.

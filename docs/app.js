@@ -1134,7 +1134,145 @@ function drawRocketRoute(ctx, w, h, p, t, opts = {}) {
   drawRocket(ctx, here.x, here.y + bob, m * (opts.mini ? 0.2 : 0.14), here.ang, t, p < 1);
   return h;
 }
-function drawRocketTimer(ctx, w, h, sess, t) { return drawRocketRoute(ctx, w, h, sess.progress, t); }
+
+// ---- Rocket Brush cockpit: planets grow closer and fly past the window, with a distance gauge
+const FLYBYS = [
+  { kind: "moon", name: "Moon", from: 0.0, to: 0.3, side: -1, dy: -0.15 },
+  { kind: "mars", name: "Mars", from: 0.17, to: 0.55, side: 1, dy: 0.1 },
+  { kind: "jupiter", name: "Jupiter", from: 0.42, to: 0.8, side: -1, dy: 0.05 },
+];
+const cockpitStates = {};
+function cockpitState(key) {
+  if (!cockpitStates[key]) {
+    const rnd = seeded(7), stars = [];
+    for (let i = 0; i < 90; i++) stars.push({ x: rnd() * 2 - 1, y: rnd() * 2 - 1, z: rnd() * 0.95 + 0.05, c: ["#fff", "#fff", "#BDE8FF", "#FFE46B", "#FFC2E8"][i % 5] });
+    cockpitStates[key] = { stars, last: null };
+  }
+  return cockpitStates[key];
+}
+function drawCockpit(ctx, w, h, p, t, opts = {}) {
+  const mini = !!opts.mini, st = cockpitState(mini ? "mini" : "main");
+  const dt = st.last == null ? 0 : Math.min(t - st.last, 0.1); st.last = t;
+  const moving = opts.moving !== false && p < 1;
+  // layout: window on the left, distance gauge on the right, console along the bottom
+  const gw = mini ? w * 0.2 : Math.max(58, w * 0.18), gap = mini ? 3 : 8;
+  const winX = mini ? 3 : 6, winY = mini ? 3 : 6, winW = w - gw - gap - winX * 2, consoleTop = h * (mini ? 0.78 : 0.76);
+  const winH = consoleTop - winY + h * 0.06, wr = mini ? 10 : 26;
+  // cockpit walls
+  fillRR(ctx, 0, 0, w, h, mini ? 12 : 22, "#1B3550");
+  ctx.fillStyle = "#234466"; ctx.fillRect(0, 0, w, h * 0.05);
+  if (!mini) { for (const [x, y] of [[w * 0.02, h * 0.3], [w * 0.02, h * 0.55]]) { fillRR(ctx, x - 2, y, 8, h * 0.12, 3, "#3BD16F"); } }
+  // ---- the window
+  ctx.save(); rrect(ctx, winX, winY, winW, winH, wr); ctx.clip();
+  const g = ctx.createLinearGradient(0, winY, 0, winY + winH);
+  g.addColorStop(0, "#1A1250"); g.addColorStop(0.6, "#3A2A9E"); g.addColorStop(1, "#2B5FC2");
+  ctx.fillStyle = g; ctx.fillRect(winX, winY, winW, winH);
+  const cx = winX + winW / 2, cy = winY + winH * 0.42;
+  // nebula glow
+  const neb = ctx.createRadialGradient(cx + winW * 0.2, cy - winH * 0.1, 0, cx + winW * 0.2, cy - winH * 0.1, winW * 0.6);
+  neb.addColorStop(0, "rgba(255,138,210,0.22)"); neb.addColorStop(1, "rgba(255,138,210,0)"); ctx.fillStyle = neb; ctx.fillRect(winX, winY, winW, winH);
+  // stars streaming toward us
+  const speed = moving ? 0.22 : 0;
+  for (const s of st.stars) {
+    const z0 = s.z; s.z -= speed * dt;
+    if (s.z <= 0.04) { s.z = 1; s.x = Math.random() * 2 - 1; s.y = Math.random() * 2 - 1; continue; }
+    const k = winW * 0.35, x1 = cx + s.x / s.z * k, y1 = cy + s.y / s.z * k, x0 = cx + s.x / z0 * k, y0 = cy + s.y / z0 * k;
+    if (x1 < winX - 10 || x1 > winX + winW + 10 || y1 < winY - 10 || y1 > winY + winH + 10) { s.z = 1; continue; }
+    const size = Math.max(0.6, (1 - s.z) * (mini ? 1.6 : 3));
+    ctx.globalAlpha = Math.min(1, (1 - s.z) * 1.6);
+    ctx.strokeStyle = s.c; ctx.lineWidth = size; ctx.lineCap = "round";
+    ctx.beginPath(); ctx.moveTo(x0, y0); ctx.lineTo(x1 + (x1 - x0) * 0.3, y1 + (y1 - y0) * 0.3); ctx.stroke();
+  }
+  ctx.globalAlpha = 1; ctx.lineCap = "butt";
+  // comets now and then
+  if (!mini) {
+    const period = 6.5, k = Math.floor(t / period), u = (t - k * period) / 2.2;
+    if (u < 1) {
+      const a = hash(k * 3.3), fromLeft = a < 0.5, y0 = winY + winH * (0.08 + hash(k * 5.1) * 0.35);
+      const x = fromLeft ? winX - 40 + u * (winW + 80) : winX + winW + 40 - u * (winW + 80), y = y0 + u * winH * 0.35;
+      const dx = fromLeft ? -1 : 1, tail = winW * 0.28;
+      const tg = ctx.createLinearGradient(x, y, x + dx * tail, y - tail * 0.35);
+      tg.addColorStop(0, "rgba(180,240,255,0.95)"); tg.addColorStop(1, "rgba(180,240,255,0)");
+      ctx.strokeStyle = tg; ctx.lineWidth = 7; ctx.lineCap = "round";
+      ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x + dx * tail, y - tail * 0.35); ctx.stroke(); ctx.lineCap = "butt";
+      circ(ctx, x, y, 6, "#fff"); circ(ctx, x, y, 3.5, "#BDE8FF");
+    }
+  }
+  // planets: tiny and far away, then growing faster and faster until they whoosh past
+  const base = winH * 0.95;
+  for (const f of FLYBYS) {
+    if (p < f.from || p > f.to) continue;
+    const u = (p - f.from) / (f.to - f.from), zz = Math.pow(14, 1 - u);
+    const r = base / zz, x = cx + f.side * winW * 0.95 / zz * (1 + u * 0.6), y = cy + f.dy * winH / zz + winH * 0.05 * u;
+    drawPlanet(ctx, f.kind, x, y, r, t);
+    if (!mini && u < 0.7) {
+      ctx.font = `900 13px Nunito, ui-rounded, system-ui, sans-serif`; ctx.textAlign = "center"; ctx.textBaseline = "top";
+      ctx.fillStyle = "rgba(255,255,255,0.85)"; ctx.fillText(f.name, x, y + r + 6);
+    }
+  }
+  // destination: grows from a dot to filling the window as we arrive
+  if (p > 0.66) {
+    const u = Math.min((p - 0.66) / 0.34, 1), zz = Math.pow(12, 1 - u) * 1.25;
+    const r = base * 0.75 / zz, x = cx, y = cy + winH * 0.1 * u;
+    drawPlanet(ctx, "dest", x, y, r, t);
+    if (!mini && u < 0.85) { ctx.font = `900 14px Nunito, ui-rounded, system-ui, sans-serif`; ctx.textAlign = "center"; ctx.textBaseline = "top"; ctx.fillStyle = "#FFE46B"; ctx.fillText("Planet Zoom", x, y + r * 1.1 + 6); }
+  }
+  // glass shine
+  ctx.globalAlpha = 0.12; ctx.fillStyle = "#fff";
+  ctx.beginPath(); ctx.moveTo(winX, winY + winH * 0.55); ctx.lineTo(winX + winW * 0.35, winY); ctx.lineTo(winX + winW * 0.5, winY); ctx.lineTo(winX, winY + winH * 0.8); ctx.closePath(); ctx.fill();
+  ctx.globalAlpha = 1;
+  ctx.restore();
+  rrect(ctx, winX, winY, winW, winH, wr); ctx.lineWidth = mini ? 3 : 6; ctx.strokeStyle = "#4FE3FF"; ctx.stroke();
+  // ---- console along the bottom
+  const ct = consoleTop;
+  ctx.beginPath(); ctx.moveTo(0, h); ctx.lineTo(0, ct + h * 0.06); ctx.quadraticCurveTo(w * 0.04, ct, w * 0.12, ct); ctx.lineTo(w * 0.88, ct); ctx.quadraticCurveTo(w * 0.96, ct, w, ct + h * 0.06); ctx.lineTo(w, h); ctx.closePath();
+  ctx.fillStyle = "#2C4F73"; ctx.fill();
+  ctx.fillStyle = "#3E6A94"; ctx.fillRect(w * 0.1, ct, w * 0.8, mini ? 2 : 4);
+  if (!mini) {
+    const sh = (h - ct) * 0.5, sy = ct + (h - ct) * 0.22;
+    for (const sx of [w * 0.05, w * 0.73]) {
+      fillRR(ctx, sx, sy, w * 0.2, sh, 8, "#1E7A45"); fillRR(ctx, sx + 3, sy + 3, w * 0.2 - 6, sh - 6, 6, "#3BD16F");
+      ctx.strokeStyle = "rgba(10,60,30,0.6)"; ctx.lineWidth = 2; ctx.beginPath();
+      for (let i = 0; i <= 12; i++) { const xx = sx + 6 + i * (w * 0.2 - 12) / 12, yy = sy + sh / 2 + Math.sin(i * 0.9 + t * 3 + sx) * sh * 0.25; i ? ctx.lineTo(xx, yy) : ctx.moveTo(xx, yy); }
+      ctx.stroke();
+    }
+    // blinking buttons
+    [[0.29, P.orange], [0.33, P.green], [0.67, P.red], [0.71, P.yellow]].forEach(([u, c], i) => {
+      ctx.globalAlpha = (Math.floor(t * 2 + i * 0.7) % 2) ? 1 : 0.45; circ(ctx, w * u, ct + (h - ct) * 0.45, 5, c); ctx.globalAlpha = 1;
+    });
+  }
+  // ---- distance gauge
+  const gx = w - gw - (mini ? 3 : 6), gy = winY, gh = consoleTop - winY - (mini ? 4 : 10);
+  fillRR(ctx, gx, gy + 4, gw, gh, mini ? 8 : 16, "#10233A"); fillRR(ctx, gx, gy, gw, gh, mini ? 8 : 16, "#234466");
+  const labelH = mini ? 0 : 40, tubeX = gx + gw * 0.5 - (mini ? 5 : 9), tubeW = mini ? 10 : 18;
+  const tubeTop = gy + labelH + (mini ? 10 : 30), tubeBot = gy + gh - (mini ? 8 : 16), tubeH = tubeBot - tubeTop;
+  if (!mini) {
+    ctx.textAlign = "center"; ctx.textBaseline = "top"; ctx.fillStyle = "#8FD3FF"; ctx.font = "900 10px Nunito, ui-rounded, system-ui, sans-serif";
+    ctx.fillText("MILES LEFT", gx + gw / 2, gy + 6);
+    ctx.fillStyle = "#fff"; ctx.font = `900 ${Math.min(20, gw * 0.34)}px Nunito, ui-rounded, system-ui, sans-serif`;
+    ctx.fillText(String(Math.ceil((1 - p) * 1000)), gx + gw / 2, gy + 19);
+  }
+  fillRR(ctx, tubeX, tubeTop, tubeW, tubeH, tubeW / 2, "#0B1A2C");
+  const fillH = Math.max(tubeW, tubeH * p);
+  const fg = ctx.createLinearGradient(0, tubeBot, 0, tubeTop); fg.addColorStop(0, P.blue); fg.addColorStop(1, "#4FE3FF");
+  rrect(ctx, tubeX, tubeBot - fillH, tubeW, fillH, tubeW / 2); ctx.fillStyle = fg; ctx.fill();
+  ctx.globalAlpha = 0.45; fillRR(ctx, tubeX + tubeW * 0.2, tubeBot - fillH + 4, tubeW * 0.22, Math.max(fillH - 8, 0), 3, "#fff"); ctx.globalAlpha = 1;
+  // tick marks
+  for (let i = 1; i < 10; i++) { const yy = tubeBot - tubeH * i / 10; ctx.fillStyle = "rgba(255,255,255,0.35)"; ctx.fillRect(tubeX - (mini ? 3 : 6), yy - 0.5, mini ? 2 : 4, 1); }
+  // planets along the gauge: they light up when passed
+  const stops = [["earth", 0], ["moon", 0.25], ["mars", 0.5], ["jupiter", 0.75], ["dest", 1]];
+  for (const [kind, u] of stops) {
+    const yy = tubeBot - tubeH * u, px = tubeX + tubeW + (mini ? 6 : 12), pr = mini ? 3.5 : (kind === "dest" ? 8 : 6.5);
+    ctx.globalAlpha = p >= u - 0.001 ? 1 : 0.4; drawPlanet(ctx, kind, px, yy, pr, t); ctx.globalAlpha = 1;
+  }
+  // rocket marker riding the gauge
+  if (!mini || true) {
+    const ry = tubeBot - fillH + tubeW / 2;
+    drawRocket(ctx, tubeX + tubeW / 2 - (mini ? 0 : 0), ry - (mini ? 6 : 12), mini ? 13 : 26, -Math.PI / 2, t, moving);
+  }
+  return h;
+}
+function drawRocketTimer(ctx, w, h, sess, t) { return drawCockpit(ctx, w, h, sess.progress, t, { moving: !sess.paused }); }
 
 // ---- small pictures on the home screen theme tiles
 function drawThemeIcon(ctx, w, h, theme, t) {
@@ -1148,11 +1286,7 @@ function drawThemeIcon(ctx, w, h, theme, t) {
     }
     ctx.restore(); rrect(ctx, x, y, S, S, 14); ctx.lineWidth = 3; ctx.strokeStyle = P.border; ctx.stroke(); return;
   }
-  if (theme.timer === "rocket") {
-    ctx.save(); rrect(ctx, 2, 2, w - 4, h - 4, 14); ctx.fillStyle = "#0B1230"; ctx.fill(); ctx.clip();
-    drawRocketRoute(ctx, w - 4, h - 4, 0.45, t, { mini: true }); ctx.restore();
-    rrect(ctx, 2, 2, w - 4, h - 4, 14); ctx.lineWidth = 3; ctx.strokeStyle = P.border; ctx.stroke(); return;
-  }
+  if (theme.timer === "rocket") { drawCockpit(ctx, w, h, 0.4, t, { mini: true }); return; }
   if (theme.timer === "coloring") {
     let pw = w, ph = pw * 0.75; if (ph > h) { ph = h; pw = ph / 0.75; }
     drawColoringPage(ctx, variants.current(theme), (w - pw) / 2, (h - ph) / 2 - 2, pw, ph - 4, 0.6, t, false); return;
