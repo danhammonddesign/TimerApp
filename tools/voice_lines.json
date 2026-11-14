@@ -42,19 +42,19 @@
     "voice": "bm_george",
     "speed": 1.0,
     "lines": {
-      "intro": "Roar! Welcome to Dino Land. Let's stomp those germs!",
+      "intro": "Roar! Grab your crayons. Let's color in a dinosaur while we brush!",
       "top_front": "Start with your top front teeth. Chomp chomp, brush brush!",
       "top_left": "Stomp over to the top teeth on the left side!",
       "top_right": "Now stomp to the top teeth on the right side!",
       "top_inside": "Turn your brush around and clean the inside of your top teeth!",
-      "bottom_front": "Halfway to the volcano! Now brush your bottom front teeth.",
+      "bottom_front": "The dinosaur is half colored in! Now brush your bottom front teeth.",
       "bottom_left": "March down to the bottom teeth on the left side!",
       "bottom_right": "Now the bottom teeth on the right side. Roar!",
       "bottom_inside": "Last stomp! Brush the inside of your bottom teeth, and your tongue too!",
-      "finale": "Kaboom! The volcano erupted! You have the strongest teeth in Dino Land!",
+      "finale": "Roar! The dinosaur is all colored in! You have the strongest teeth in Dino Land!",
       "cheer1": "Dino-mite brushing!",
       "cheer2": "Even a tee rex would be jealous of those teeth!",
-      "cheer3": "Stomp out those sugar bugs!"
+      "cheer3": "What a colorful dinosaur!"
     }
   },
   "rainbow": {

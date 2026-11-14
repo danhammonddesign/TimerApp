@@ -24,6 +24,7 @@ the side of the mouth being brushed, scrubs with a toothbrush and wears a costum
   - *Marble Drop* — a plinko board: marbles bounce down the pegs and pile up; the board is completely full the moment time runs out.
   - *Sand Art* — rainbow sand pours into a jar shaped like a cat, puppy or shark (random each time). Every brushing zone adds a new color layer.
   - *Ocean Dive* — the same sand timer, in a crab-shaped jar.
+  - *Dino Stomp* (web) — a coloring book: a crayon colors in a T. rex, triceratops, stegosaurus or long-neck, part by part, until the page is done.
   - *Secret Picture* — a 5×6 grid of tiles; every few seconds one wobbles and flips away. When time's up, a cute cat or puppy is revealed.
   - The other themes use the big countdown ring with Chompy inside.
   Each one has its own colors, floating background art, hero character, music loop and **its own narrator voice**.

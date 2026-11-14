@@ -31,9 +31,9 @@ const THEMES = [
     bg: ["#0C6FA8", "#073A63"], primary: P.yellow, lip: P.yellowLip, light: "#FFE46B", text: "#5A3D00",
     shapes: ["#FFFFFF", "#6FE3FF", P.yellow], finale: "Crab full!",
     stickers: S("ocean", [["🐚","Shiny Shell","common"],["🦀","Snappy Crab","common"],["🐢","Turtle Pal","common"],["🐬","Dolphin Flip","rare"],["🐙","Octo Hugs","rare"],["🐳","Whale King","legendary"]]) },
-  { id: "dino", name: "Dino Stomp", tagline: "Make the volcano erupt!", costume: "dinoHood", timer: "ring",
+  { id: "dino", name: "Dino Stomp", tagline: "Color in the dinosaur!", costume: "dinoHood", timer: "coloring",
     bg: ["#1E3B1A", "#10230D"], primary: P.green, lip: P.greenLip, light: "#A6F04A", text: "#FFFFFF",
-    shapes: [P.green, P.orange, "#A6F04A"], finale: "Ka-boom! Roar!",
+    shapes: [P.green, P.orange, "#A6F04A"], finale: "All colored in!",
     stickers: S("dino", [["🥚","Dino Egg","common"],["🦴","Big Bone","common"],["🌴","Palm Snack","common"],["🦕","Long Neck","rare"],["🦣","Fuzzy Mammoth","rare"],["🐉","Dragon Legend","legendary"]]) },
   { id: "rainbow", name: "Unicorn Magic", tagline: "Make a magic rainbow appear!", costume: "unicorn", timer: "ring",
     bg: ["#8A4FD8", "#3A1B6E"], primary: P.pink, lip: P.pinkLip, light: "#FFC2E8", text: "#FFFFFF",
@@ -48,7 +48,7 @@ const PICTURES = ["cat", "dog", "bunny", "panda", "fox", "frog"];
 const VARIANT_NAMES = { cat: "Kitty", dog: "Puppy", shark: "Shark", crab: "Crab", bunny: "Bunny", owl: "Owl", turtle: "Turtle", bear: "Bear", fish: "Fish" };
 /** which jar animal / hidden picture each theme uses next; they take turns */
 const variants = {
-  list(theme) { return theme.timer === "sandJar" ? theme.jarPets : theme.timer === "tiles" ? PICTURES : []; },
+  list(theme) { return theme.timer === "sandJar" ? theme.jarPets : theme.timer === "tiles" ? PICTURES : theme.timer === "coloring" ? DINO_ORDER : []; },
   index(theme) { const l = this.list(theme); return l.length ? (store.get("variant." + theme.id, 0) % l.length + l.length) % l.length : 0; },
   current(theme) { return this.list(theme)[this.index(theme)]; },
   advance(theme) { if (this.list(theme).length) store.set("variant." + theme.id, this.index(theme) + 1); },
@@ -849,6 +849,166 @@ function drawTiles(ctx, w, h, sess, t) {
   return by + bh;
 }
 
+// ---- Dino coloring book: a crayon colors in the dinosaur, one part at a time
+// Pictures are drawn on a 120 x 90 page. Each region is one closed outline:
+// ["M",x,y] move, ["L",x,y] line, ["Q",cx,cy,x,y] curve, ["C",c1x,c1y,c2x,c2y,x,y] curve, ["E",cx,cy,rx,ry] ellipse, ["Z"] close.
+const INK = "#2B3A40", PAPER = "#FFFDF6";
+const SCENE_GROUND = { color: "#F2C27B", d: [["M", 0, 80], ["Q", 30, 72, 62, 79], ["Q", 92, 86, 120, 76], ["L", 120, 90], ["L", 0, 90], ["Z"]] };
+const SCENE_SUN = { color: P.yellow, d: [["E", 15, 14, 9, 9]] };
+const DINOS = {
+  trex: { name: "T. rex", eye: [88, 18], mouth: [[92, 27], [103, 25]], regions: [
+    { color: P.greenLip, d: [["M", 47, 60], ["L", 58, 60], ["L", 60, 79], ["Q", 54, 81, 49, 79], ["Z"]] },
+    { color: P.greenLip, d: [["M", 60, 61], ["L", 70, 61], ["L", 71, 79], ["Q", 65, 81, 60, 79], ["Z"]] },
+    { color: P.green, d: [["M", 4, 60], ["Q", 24, 50, 42, 44], ["C", 54, 40, 62, 38, 68, 30], ["L", 80, 33], ["C", 80, 45, 77, 56, 70, 63], ["C", 63, 70, 50, 71, 41, 69], ["Q", 24, 67, 4, 60], ["Z"]] },
+    { color: P.green, d: [["M", 66, 24], ["C", 67, 12, 84, 8, 97, 12], ["C", 106, 15, 108, 22, 105, 27], ["L", 91, 29], ["C", 90, 34, 84, 36, 77, 36], ["C", 69, 35, 65, 31, 66, 24], ["Z"]] },
+    { color: P.yellow, d: [["M", 30, 62], ["C", 42, 66, 58, 66, 70, 57], ["C", 67, 66, 57, 70, 46, 69], ["Q", 37, 68, 30, 62], ["Z"]] },
+    { color: P.orange, d: [["M", 24, 52], ["L", 28, 44], ["L", 32, 49], ["L", 37, 41], ["L", 41, 46], ["L", 47, 38], ["L", 50, 43], ["L", 56, 36], ["L", 58, 41], ["Q", 42, 46, 24, 52], ["Z"]] },
+    { color: P.greenLip, d: [["M", 74, 42], ["Q", 82, 42, 84, 48], ["L", 81, 50], ["Q", 79, 46, 74, 47], ["Z"]] },
+  ] },
+  triceratops: { name: "Triceratops", eye: [89, 45], mouth: [[98, 56], [106, 54]], regions: [
+    { color: P.purpleLip, d: [["M", 30, 62], ["L", 40, 62], ["L", 40, 80], ["Q", 35, 82, 30, 80], ["Z"]] },
+    { color: P.purpleLip, d: [["M", 62, 62], ["L", 72, 62], ["L", 72, 80], ["Q", 67, 82, 62, 80], ["Z"]] },
+    { color: P.purpleLip, d: [["M", 18, 66], ["L", 28, 66], ["L", 28, 80], ["Q", 23, 82, 18, 80], ["Z"]] },
+    { color: P.purpleLip, d: [["M", 50, 66], ["L", 60, 66], ["L", 60, 80], ["Q", 55, 82, 50, 80], ["Z"]] },
+    { color: P.purple, d: [["M", 6, 56], ["Q", 14, 52, 22, 50], ["C", 30, 34, 62, 32, 76, 42], ["C", 80, 52, 78, 64, 68, 68], ["C", 52, 72, 32, 72, 22, 64], ["Q", 14, 60, 6, 56], ["Z"]] },
+    { color: P.pink, d: [["M", 70, 46], ["C", 66, 30, 74, 18, 84, 22], ["C", 92, 26, 92, 40, 88, 48], ["Q", 80, 52, 70, 46], ["Z"]] },
+    { color: P.purple, d: [["M", 76, 44], ["C", 84, 38, 98, 42, 106, 50], ["Q", 112, 56, 106, 60], ["C", 98, 63, 86, 62, 80, 58], ["C", 74, 55, 72, 48, 76, 44], ["Z"]] },
+    { color: "#FFF4D6", d: [["M", 86, 40], ["Q", 92, 28, 106, 24], ["Q", 98, 34, 92, 42], ["Z"]] },
+    { color: "#FFF4D6", d: [["M", 104, 50], ["Q", 112, 42, 116, 38], ["Q", 114, 46, 108, 53], ["Z"]] },
+  ] },
+  stego: { name: "Stegosaurus", eye: [97, 50], mouth: [[99, 57], [106, 56]], regions: [
+    { color: P.orange, d: [["M", 30, 40], ["L", 34, 24], ["L", 42, 36], ["L", 48, 18], ["L", 56, 34], ["L", 64, 20], ["L", 70, 36], ["L", 78, 28], ["L", 80, 44], ["Z"]] },
+    { color: P.blueLip, d: [["M", 32, 62], ["L", 42, 62], ["L", 42, 80], ["Q", 37, 82, 32, 80], ["Z"]] },
+    { color: P.blueLip, d: [["M", 66, 62], ["L", 76, 62], ["L", 76, 80], ["Q", 71, 82, 66, 80], ["Z"]] },
+    { color: P.blueLip, d: [["M", 20, 66], ["L", 30, 64], ["L", 31, 80], ["Q", 26, 82, 21, 80], ["Z"]] },
+    { color: P.blueLip, d: [["M", 54, 66], ["L", 64, 66], ["L", 64, 80], ["Q", 59, 82, 54, 80], ["Z"]] },
+    { color: P.blue, d: [["M", 2, 50], ["L", 12, 48], ["Q", 26, 34, 52, 34], ["C", 74, 34, 86, 42, 92, 50], ["C", 98, 46, 108, 48, 110, 54], ["C", 110, 60, 100, 62, 92, 60], ["C", 84, 68, 64, 70, 48, 68], ["Q", 26, 66, 12, 56], ["L", 2, 50], ["Z"]] },
+    { color: "#A6F04A", d: [["M", 24, 60], ["C", 40, 66, 66, 66, 84, 60], ["C", 72, 68, 50, 70, 36, 66], ["Z"]] },
+    { color: "#FFF4D6", d: [["M", 2, 50], ["L", 0, 42], ["L", 7, 48], ["L", 4, 38], ["L", 11, 47], ["Z"]] },
+  ] },
+  longneck: { name: "Long-neck", eye: [101, 14], mouth: [[104, 19], [110, 18]], regions: [
+    { color: P.tealLip, d: [["M", 30, 62], ["L", 40, 62], ["L", 40, 80], ["Q", 35, 82, 30, 80], ["Z"]] },
+    { color: P.tealLip, d: [["M", 62, 62], ["L", 72, 62], ["L", 72, 80], ["Q", 67, 82, 62, 80], ["Z"]] },
+    { color: P.tealLip, d: [["M", 20, 64], ["L", 30, 64], ["L", 30, 80], ["Q", 25, 82, 20, 80], ["Z"]] },
+    { color: P.tealLip, d: [["M", 52, 66], ["L", 62, 66], ["L", 62, 80], ["Q", 57, 82, 52, 80], ["Z"]] },
+    { color: P.teal, d: [["M", 2, 62], ["Q", 14, 54, 24, 50], ["C", 32, 38, 60, 36, 72, 44], ["C", 80, 34, 84, 20, 92, 12], ["C", 98, 6, 110, 8, 112, 14], ["C", 114, 20, 106, 22, 100, 22], ["C", 92, 30, 88, 46, 80, 58], ["C", 72, 70, 44, 72, 28, 66], ["Q", 14, 64, 2, 62], ["Z"]] },
+    { color: P.yellow, d: [["M", 30, 64], ["C", 44, 68, 64, 66, 76, 58], ["C", 70, 68, 50, 72, 36, 68], ["Z"]] },
+    { color: P.pink, d: [["E", 40, 46, 5, 3.5], ], },
+    { color: P.pink, d: [["E", 54, 43, 5, 3.5]] },
+    { color: P.pink, d: [["E", 66, 47, 4.5, 3]] },
+  ] },
+};
+const DINO_ORDER = ["trex", "triceratops", "stego", "longneck"];
+function regionPath(ctx, d, ox, oy, k) {
+  ctx.beginPath();
+  for (const c of d) {
+    const X = v => ox + v * k;
+    if (c[0] === "M") ctx.moveTo(X(c[1]), oy + c[2] * k);
+    else if (c[0] === "L") ctx.lineTo(X(c[1]), oy + c[2] * k);
+    else if (c[0] === "Q") ctx.quadraticCurveTo(X(c[1]), oy + c[2] * k, X(c[3]), oy + c[4] * k);
+    else if (c[0] === "C") ctx.bezierCurveTo(X(c[1]), oy + c[2] * k, X(c[3]), oy + c[4] * k, X(c[5]), oy + c[6] * k);
+    else if (c[0] === "E") { ctx.moveTo(X(c[1] + c[3]), oy + c[2] * k); ctx.ellipse(X(c[1]), oy + c[2] * k, c[3] * k, c[4] * k, 0, 0, Math.PI * 2); }
+    else if (c[0] === "Z") ctx.closePath();
+  }
+}
+function regionBox(d) {
+  let x0 = 1e9, y0 = 1e9, x1 = -1e9, y1 = -1e9;
+  const add = (x, y) => { x0 = Math.min(x0, x); y0 = Math.min(y0, y); x1 = Math.max(x1, x); y1 = Math.max(y1, y); };
+  for (const c of d) {
+    if (c[0] === "E") { add(c[1] - c[3], c[2] - c[4]); add(c[1] + c[3], c[2] + c[4]); }
+    else for (let i = 1; i + 1 < c.length; i += 2) add(c[i], c[i + 1]);
+  }
+  return { x0, y0, x1, y1 };
+}
+/** the order things get colored in: the dinosaur's parts first, then the ground, then the sun */
+function coloringPlan(dinoId) {
+  const dino = DINOS[dinoId];
+  const regions = [...dino.regions, SCENE_GROUND, SCENE_SUN].map(r => {
+    const b = regionBox(r.d);
+    return { ...r, box: b, weight: Math.pow(Math.max((b.x1 - b.x0) * (b.y1 - b.y0), 20), 0.55) };
+  });
+  const total = regions.reduce((a, r) => a + r.weight, 0);
+  let acc = 0;
+  regions.forEach(r => { r.start = acc / total; acc += r.weight; r.end = acc / total; });
+  return { dino, regions, drawOrder: [SCENE_SUN, SCENE_GROUND, ...dino.regions].map(src => regions.find(r => r.d === src.d)) };
+}
+/** zig-zag crayon path that covers a region's box; returns points in page units */
+function scribble(box, spacing) {
+  const pts = [], pad = spacing * 0.6;
+  let left = true;
+  for (let y = box.y0 - pad; y <= box.y1 + pad + spacing; y += spacing) {
+    pts.push(left ? [box.x0 - pad, y] : [box.x1 + pad, y + spacing * 0.5]);
+    left = !left;
+  }
+  return pts;
+}
+function polyPrefix(pts, f) {
+  const lens = [0];
+  for (let i = 1; i < pts.length; i++) lens.push(lens[i - 1] + Math.hypot(pts[i][0] - pts[i - 1][0], pts[i][1] - pts[i - 1][1]));
+  const target = lens[lens.length - 1] * Math.min(Math.max(f, 0), 1), out = [pts[0]];
+  for (let i = 1; i < pts.length; i++) {
+    if (lens[i] <= target) { out.push(pts[i]); continue; }
+    const u = (target - lens[i - 1]) / Math.max(lens[i] - lens[i - 1], 1e-6);
+    out.push([pts[i - 1][0] + (pts[i][0] - pts[i - 1][0]) * u, pts[i - 1][1] + (pts[i][1] - pts[i - 1][1]) * u]);
+    break;
+  }
+  return out;
+}
+function drawCrayon(ctx, x, y, color, lip, t) {
+  ctx.save(); ctx.translate(x, y); ctx.rotate(rad(-35 + Math.sin(t * 20) * 4));
+  // tip at the origin, crayon body up and to the right
+  ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(7, -12); ctx.lineTo(-7, -12); ctx.closePath(); ctx.fillStyle = color; ctx.fill();
+  fillRR(ctx, -8, -52, 16, 42, 4, lip); fillRR(ctx, -8, -54, 14, 42, 4, color);
+  ctx.fillStyle = "rgba(255,255,255,0.85)"; ctx.fillRect(-8, -40, 14, 12);
+  ctx.globalAlpha = 0.35; fillRR(ctx, -5, -52, 3, 38, 1.5, "#fff"); ctx.globalAlpha = 1;
+  ctx.restore();
+}
+/** draws the coloring page into a box; `p` 0...1 is how much is colored in */
+function drawColoringPage(ctx, dinoId, x, y, w, h, p, t, live) {
+  const plan = coloringPlan(dinoId), k = w / 120;
+  // paper card with a chunky edge
+  const cr = Math.min(22, w * 0.1);
+  fillRR(ctx, x, y + 5, w, h, cr, P.border); fillRR(ctx, x, y, w, h, cr, PAPER);
+  ctx.save(); rrect(ctx, x, y, w, h, cr); ctx.clip();
+  const lw = Math.max(2, 1.6 * k), spacing = 4.2;
+  let tip = null;
+  for (const r of plan.drawOrder) {
+    regionPath(ctx, r.d, x, y, k); ctx.fillStyle = PAPER; ctx.fill();
+    const f = (p - r.start) / (r.end - r.start);
+    if (f >= 1) { ctx.fillStyle = r.color; ctx.fill(); }
+    else if (f > 0) {
+      const pts = scribble(r.box, spacing), part = polyPrefix(pts, f);
+      ctx.save(); regionPath(ctx, r.d, x, y, k); ctx.clip();
+      ctx.beginPath(); part.forEach(([px, py], i) => i ? ctx.lineTo(x + px * k, y + py * k) : ctx.moveTo(x + px * k, y + py * k));
+      ctx.lineWidth = spacing * k * 1.5; ctx.lineCap = "round"; ctx.lineJoin = "round"; ctx.strokeStyle = r.color; ctx.stroke();
+      ctx.restore();
+      const last = part[part.length - 1]; tip = { x: x + last[0] * k, y: y + last[1] * k, color: r.color };
+    }
+    regionPath(ctx, r.d, x, y, k); ctx.lineWidth = lw; ctx.lineJoin = "round"; ctx.strokeStyle = INK; ctx.stroke();
+  }
+  // eye and smile are printed on the page
+  const d = plan.dino, [ex, ey] = d.eye;
+  circ(ctx, x + ex * k, y + ey * k, 3.2 * k, "#fff"); ctx.lineWidth = lw * 0.8; ctx.strokeStyle = INK; ctx.stroke();
+  circ(ctx, x + (ex + 0.6) * k, y + ey * k, 1.7 * k, INK); circ(ctx, x + (ex + 1.1) * k, y + (ey - 0.7) * k, 0.6 * k, "#fff");
+  ctx.beginPath(); ctx.moveTo(x + d.mouth[0][0] * k, y + d.mouth[0][1] * k);
+  ctx.quadraticCurveTo(x + (d.mouth[0][0] + d.mouth[1][0]) / 2 * k, y + (Math.max(d.mouth[0][1], d.mouth[1][1]) + 3) * k, x + d.mouth[1][0] * k, y + d.mouth[1][1] * k);
+  ctx.lineWidth = lw; ctx.lineCap = "round"; ctx.strokeStyle = INK; ctx.stroke(); ctx.lineCap = "butt";
+  ctx.restore();
+  rrect(ctx, x, y, w, h, cr); ctx.lineWidth = 3; ctx.strokeStyle = P.border; ctx.stroke();
+  if (live && tip && p < 1) drawCrayon(ctx, tip.x, tip.y, tip.color, shade(tip.color), t);
+}
+function shade(hex) {
+  const n = parseInt(hex.slice(1), 16), f = 0.8;
+  return "#" + [n >> 16, (n >> 8) & 255, n & 255].map(v => Math.round(v * f).toString(16).padStart(2, "0")).join("");
+}
+function drawColoringTimer(ctx, w, h, sess, t) {
+  const aspect = 120 / 90; let bw = w, bh = bw / aspect;
+  if (bh > h - 8) { bh = h - 8; bw = bh * aspect; }
+  const bx = (w - bw) / 2, by = (h - 8 - bh) / 2;
+  drawColoringPage(ctx, sess.pet, bx, by, bw, bh, sess.progress, t, !sess.paused);
+  return by + bh;
+}
+
 // ---- small pictures on the home screen theme tiles
 function drawThemeIcon(ctx, w, h, theme, t) {
   if (theme.timer === "ring") { const s = Math.min(w / 1.05, h / 1.2); drawMascot(ctx, w / 2 - s / 2, h / 2 - s * 0.6, s, { costume: theme.costume }, t); return; }
@@ -860,6 +1020,10 @@ function drawThemeIcon(ctx, w, h, theme, t) {
       for (let c = 0; c < n; c++) drawMarble(ctx, x + x0 + c * d, y + yy, d / 2, Math.floor(rnd() * 7));
     }
     ctx.restore(); rrect(ctx, x, y, S, S, 14); ctx.lineWidth = 3; ctx.strokeStyle = P.border; ctx.stroke(); return;
+  }
+  if (theme.timer === "coloring") {
+    let pw = w, ph = pw * 0.75; if (ph > h) { ph = h; pw = ph / 0.75; }
+    drawColoringPage(ctx, variants.current(theme), (w - pw) / 2, (h - ph) / 2 - 2, pw, ph - 4, 0.6, t, false); return;
   }
   if (theme.timer === "sandJar") {
     const pet = variants.current(theme), a = JARS[pet].aspect;
@@ -1021,6 +1185,7 @@ const UI = {
     const list = variants.list(th);
     if (th.timer === "sandJar" && list.length > 1) return `Fill the ${VARIANT_NAMES[variants.current(th)].toLowerCase()} jar with rainbow sand!`;
     if (th.timer === "tiles") return `Flip the tiles to find secret pet #${variants.index(th) + 1}!`;
+    if (th.timer === "coloring") return `Let's color in the ${DINOS[variants.current(th)].name}!`;
     return th.tagline;
   },
   pickTheme(t) {
@@ -1224,6 +1389,7 @@ function frame(nowMs) {
     if (s.theme.timer === "ring") bottom = drawRing(ctx, w, room - pillH / 2, s, t);
     else if (s.theme.timer === "plinko") bottom = drawPlinko(ctx, w, room, s);
     else if (s.theme.timer === "sandJar") bottom = drawSandTimer(ctx, w, room, s, t);
+    else if (s.theme.timer === "coloring") bottom = drawColoringTimer(ctx, w, room, s, t);
     else bottom = drawTiles(ctx, w, room, s, t);
     const pill = $("pill"); pill.style.top = (bottom - pillH / 2) + "px";
     const left = Math.ceil(s.remaining); pill.textContent = Math.floor(left / 60) + ":" + String(left % 60).padStart(2, "0");
