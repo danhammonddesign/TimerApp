@@ -203,7 +203,20 @@ const AudioEngine = {
   pauseAll() { if (this.ctx) this.ctx.suspend().catch(() => {}); },
   resumeAll() { if (this.ctx) this.ctx.resume().catch(() => {}); },
 };
-const buzz = ms => { try { navigator.vibrate && navigator.vibrate(ms); } catch (e) {} };
+let hapticSwitch = null;
+function iosTick() {
+  try {
+    if (!hapticSwitch) {
+      hapticSwitch = document.createElement("label");
+      hapticSwitch.style.cssText = "position:fixed;left:-200px;top:0;width:1px;height:1px;opacity:0;pointer-events:none";
+      const input = document.createElement("input"); input.type = "checkbox"; input.setAttribute("switch", ""); input.tabIndex = -1;
+      hapticSwitch.appendChild(input); document.body.appendChild(hapticSwitch);
+    }
+    hapticSwitch.click();
+  } catch (e) {}
+}
+const canVibrate = typeof navigator.vibrate === "function";
+const buzz = ms => { try { if (canVibrate) navigator.vibrate(ms); else iosTick(); } catch (e) {} };
 
 // ============================================================ drawing helpers
 function fitCanvas(cv) {
@@ -1630,15 +1643,26 @@ function drawSlotMachine(ctx, w, h, f, th, t) {
   fillRR(ctx, x + B * 0.28, by + bodyH * 0.8, B * 0.44, bodyH * 0.06, 6, "#20303A");
   // lever: pivots on the right side; swings down when pulled
   const px = x + B + 4, py = by + bodyH * 0.45, len = B * 0.48;
-  let ang = -100;
-  if (f.pullT) { const u = t - f.pullT; ang = u < 0.25 ? -100 + 150 * (u / 0.25) : u < 0.7 ? 50 - 150 * ((u - 0.25) / 0.45) : -100; }
-  else ang = -100 + Math.sin(t * 5) * 6;     // wiggles: "pull me!"
+  let pull;
+  if (f.dragging) pull = f.drag;
+  else if (f.releaseT != null) {      // spring back up with a little bounce
+    const u = Math.min((t - f.releaseT) / 0.45, 1);
+    pull = f.releaseFrom * (1 - u) * (1 - u) - Math.sin(u * Math.PI) * 0.06 * f.releaseFrom;
+  } else if (f.pullT) { const u = t - f.pullT; pull = u < 0.25 ? u / 0.25 : u < 0.7 ? 1 - (u - 0.25) / 0.45 : 0; }
+  else pull = (Math.sin(t * 5) * 0.04) - 0.02;   // wiggles: "pull me!"
+  // the arm swings down toward you: the knob slides from above the pivot to below it, getting a bit bigger mid-swing
+  const sw = Math.max(-0.08, Math.min(pull, 1)) * Math.PI * 0.85;
+  const kx = px + 4 + Math.sin(sw) * B * 0.09, ky = py - len * Math.cos(sw), kr = B * 0.075 * (1 + 0.35 * Math.sin(Math.max(sw, 0)));
   fillRR(ctx, px - 4, py - 14, 16, 28, 6, "#9AA7B0");
-  ctx.save(); ctx.translate(px + 4, py); ctx.rotate(rad(ang + 90));
-  fillRR(ctx, -4, -len, 8, len, 4, "#C9D3D9");
-  circ(ctx, 0, -len + 2, B * 0.075, P.redLip); circ(ctx, 0, -len, B * 0.075, P.red); circ(ctx, -B * 0.025, -len - B * 0.025, B * 0.022, "#fff");
-  ctx.restore();
-  f.leverBox = { x: px - B * 0.1, y: py - len - B * 0.1, w: B * 0.25, h: len + B * 0.3 };
+  ctx.lineCap = "round"; ctx.lineWidth = 8 + 3 * Math.sin(Math.max(sw, 0)); ctx.strokeStyle = "#C9D3D9";
+  ctx.beginPath(); ctx.moveTo(px + 4, py); ctx.lineTo(kx, ky); ctx.stroke(); ctx.lineCap = "butt";
+  circ(ctx, kx, ky + 2, kr, P.redLip); circ(ctx, kx, ky, kr, P.red); circ(ctx, kx - kr * 0.33, ky - kr * 0.33, kr * 0.3, "#fff");
+  f.lever = { px, py, len, B };
+  // "pull down" hint arrow next to the knob until it's been pulled
+  if (!f.pullT && !f.dragging) {
+    const hy = py - len * 0.6 + ((t * 1.6) % 1) * len * 0.5, hx = px + B * 0.17;
+    ctx.globalAlpha = 0.9 * (1 - ((t * 1.6) % 1)); tri(ctx, hx, hy, 14, 12, "#fff", 180); ctx.globalAlpha = 1;
+  }
 }
 
 // ============================================================ brushing session
@@ -1821,15 +1845,16 @@ const UI = {
       f.reels = [0, 1, 2].map(i => ({ pos: (i * 2) % icons.length, from: 0, dist: 0, t0: 0, t1: 0, done: true, lastTick: 0 }));
       f.pullT = null;
       $("finaleTitle").textContent = "Pull the lever!";
-      $("finaleFooter").innerHTML = '<button class="btn" id="pullBtn">Pull the lever!</button>';
+      $("finaleFooter").innerHTML = '<button class="btn" id="pullBtn">Pull the lever</button>';
       $("pullBtn").addEventListener("click", () => this.pullLever());
     });
     at(16, () => this.pullLever());
   },
   flash() { $("flash").classList.remove("on"); void $("flash").offsetWidth; $("flash").classList.add("on"); },
   /** spin the three reels; about 1 in 5 pulls lines up the grand prize */
-  pullLever() {
+  pullLever(fromDrag = false) {
     const f = this.finale; if (!f || f.phase !== "slot" || f.pullT) return;
+    if (!fromDrag) f.releaseT = null;
     const th = this.session.theme, A = AudioEngine, n = f.icons.length;
     const jackpotIcon = th.stickers.findIndex(x => x.rarity === "legendary");
     f.jackpot = Math.random() < 0.2;
@@ -1843,12 +1868,12 @@ const UI = {
     const now = performance.now() / 1000;
     f.pullT = now;
     f.reels.forEach((r, i) => {
-      r.from = r.pos; r.t0 = now + 0.35; r.t1 = r.t0 + 1.3 + i * 0.6; r.done = false; r.target = targets[i];
+      r.from = r.pos; r.t0 = now + (fromDrag ? 0.12 : 0.35); r.t1 = r.t0 + 1.3 + i * 0.6; r.done = false; r.target = targets[i];
       r.dist = n * (4 + i * 2) + ((targets[i] - Math.round(r.pos)) % n + n) % n;
     });
     const pb = $("pullBtn"); if (pb) { pb.disabled = true; pb.textContent = "Spinning…"; }
     $("finaleTitle").textContent = "Spinning…";
-    A.play("rattle"); buzz(20);
+    A.play("rattle"); buzz(fromDrag ? 30 : 20);
     // award now so it's saved even if they leave mid-spin
     f.sticker = rewards.award(th, f.jackpot); f.isNew = rewards.lastWasNew;
   },
@@ -1939,7 +1964,40 @@ const UI = {
 
 // ============================================================ wiring
 $("startBtn").addEventListener("click", () => UI.start());
-$("stage").addEventListener("click", () => { if (UI.finale && UI.finale.phase === "slot") UI.pullLever(); });
+// the slot machine lever: grab it and drag it down; let go to spin
+(() => {
+  const stage = $("stage");
+  const local = e => { const r = stage.getBoundingClientRect(); return [e.clientX - r.left, e.clientY - r.top]; };
+  stage.addEventListener("pointerdown", e => {
+    const f = UI.finale; if (!f || f.phase !== "slot" || f.pullT || !f.lever) return;
+    const [x, y] = local(e), L = f.lever;
+    const onLever = x > L.px - L.B * 0.22 && x < L.px + L.B * 0.3 && y > L.py - L.len - L.B * 0.22 && y < L.py + L.B * 0.15;
+    if (!onLever) return;
+    e.preventDefault(); AudioEngine.unlock();
+    try { stage.setPointerCapture(e.pointerId); } catch (err) {}
+    f.dragging = true; f.drag = 0; f.dragY = y; f.notch = 0;
+    buzz(10);
+  });
+  stage.addEventListener("pointermove", e => {
+    const f = UI.finale; if (!f || !f.dragging) return;
+    e.preventDefault();
+    // keep the knob under the finger: find the pull whose knob height matches the finger
+    const [, y] = local(e), L = f.lever, knobY = (L.py - L.len) + (y - f.dragY);
+    const pull = Math.acos(Math.min(Math.max((L.py - knobY) / L.len, -1), 1)) / (Math.PI * 0.85);
+    f.drag = Math.min(Math.max(pull, 0), 1);
+    const notch = Math.floor(f.drag * 12);        // a click every few degrees, like a ratchet
+    if (notch > f.notch) { AudioEngine.play("clack", 0.35); buzz(f.drag > 0.95 ? 25 : 8); }
+    f.notch = notch;
+  });
+  const release = () => {
+    const f = UI.finale; if (!f || !f.dragging) return;
+    f.dragging = false; f.releaseFrom = f.drag; f.releaseT = performance.now() / 1000;
+    if (f.drag > 0.55) UI.pullLever(true);      // pulled far enough: spin!
+    else AudioEngine.play("tap", 0.5);          // not far enough: it just springs back
+  };
+  stage.addEventListener("pointerup", release);
+  stage.addEventListener("pointercancel", release);
+})();
 $("bookBtn").addEventListener("click", () => { AudioEngine.unlock(); AudioEngine.play("tap"); UI.openBook(); });
 $("bookClose").addEventListener("click", () => { AudioEngine.play("tap"); $("book").hidden = true; });
 $("musicBtn").addEventListener("click", () => { AudioEngine.unlock(); settings.music = !settings.music; store.set("music", settings.music); AudioEngine.play("tap"); UI.buildHome(); });
