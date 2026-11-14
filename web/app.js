@@ -35,9 +35,9 @@ const THEMES = [
     bg: ["#1E3B1A", "#10230D"], primary: P.green, lip: P.greenLip, light: "#A6F04A", text: "#FFFFFF",
     shapes: [P.green, P.orange, "#A6F04A"], finale: "All colored in!",
     stickers: S("dino", [["🥚","Dino Egg","common"],["🦴","Big Bone","common"],["🌴","Palm Snack","common"],["🦕","Long Neck","rare"],["🦣","Fuzzy Mammoth","rare"],["🐉","Dragon Legend","legendary"]]) },
-  { id: "rainbow", name: "Unicorn Magic", tagline: "Make a magic rainbow appear!", costume: "unicorn", timer: "ring",
+  { id: "rainbow", name: "Brick Builder", tagline: "What will the bricks build this time?", costume: "hardHat", timer: "bricks",
     bg: ["#8A4FD8", "#3A1B6E"], primary: P.pink, lip: P.pinkLip, light: "#FFC2E8", text: "#FFFFFF",
-    shapes: [P.pink, P.yellow, "#FFFFFF", P.blue], finale: "Rainbow magic!",
+    shapes: [P.pink, P.yellow, "#FFFFFF", P.blue], finale: "All built!",
     stickers: S("rainbow", [["🌸","Blossom","common"],["🧁","Cupcake","common"],["🍭","Swirly Pop","common"],["🦋","Butterfly","rare"],["👑","Royal Crown","rare"],["🦄","Golden Unicorn","legendary"]]) },
   { id: "robot", name: "Robot Power", tagline: "Charge up to 100%!", costume: "robot", timer: "ring",
     bg: ["#1C2A31", "#0E171B"], primary: P.orange, lip: P.orangeLip, light: "#FFC56B", text: "#FFFFFF",
@@ -48,7 +48,7 @@ const PICTURES = ["cat", "dog", "bunny", "panda", "fox", "frog"];
 const VARIANT_NAMES = { cat: "Kitty", dog: "Puppy", shark: "Shark", crab: "Crab", bunny: "Bunny", owl: "Owl", turtle: "Turtle", bear: "Bear", fish: "Fish" };
 /** which jar animal / hidden picture each theme uses next; they take turns */
 const variants = {
-  list(theme) { return theme.timer === "sandJar" ? theme.jarPets : theme.timer === "tiles" ? PICTURES : theme.timer === "coloring" ? DINO_ORDER : []; },
+  list(theme) { return theme.timer === "sandJar" ? theme.jarPets : theme.timer === "tiles" ? PICTURES : theme.timer === "coloring" ? DINO_ORDER : theme.timer === "bricks" ? BUILD_ORDER : []; },
   index(theme) { const l = this.list(theme); return l.length ? (store.get("variant." + theme.id, 0) % l.length + l.length) % l.length : 0; },
   current(theme) { return this.list(theme)[this.index(theme)]; },
   advance(theme) { if (this.list(theme).length) store.set("variant." + theme.id, this.index(theme) + 1); },
@@ -382,6 +382,11 @@ function costumeFront(ctx, c, t) {
     ctx.save(); ctx.translate(100, -4); ctx.scale(Math.cos(t * 18) || 0.01, 1);
     ell(ctx, -15, 0, 15, 5, P.green); ell(ctx, 15, 0, 15, 5, P.purple); ctx.restore();
     circ(ctx, 100, -4, 4.5, P.yellow);
+  } else if (c === "hardHat") {
+    halfDome(ctx, 42, 4, 116, 54, P.yellow);
+    ctx.fillStyle = P.yellowLip; ctx.fillRect(93, 2, 14, 52); fillRR(ctx, 93, 0, 14, 10, 4, P.yellowLip);
+    capsule(ctx, 100, 58, 136, 12, P.yellowLip); capsule(ctx, 100, 56, 136, 10, P.yellow);
+    ctx.globalAlpha = 0.5; capsule(ctx, 66, 30, 8, 22, "#fff", 25); ctx.globalAlpha = 1;
   } else if (c === "sunHat") {
     ell(ctx, 100, 58, 84, 15, "#E0A905"); ell(ctx, 100, 55, 84, 13, P.yellow);
     halfDome(ctx, 48, 6, 104, 48, P.yellow);
@@ -1498,6 +1503,82 @@ function drawCockpit(ctx, w, h, p, t, opts = {}) {
 }
 function drawRocketTimer(ctx, w, h, sess, t) { return drawCockpit(ctx, w, h, sess.progress, t, { moving: !sess.paused }); }
 
+// ---- Brick Builder: toy bricks drop in and click together into a picture
+const BRICK_COLORS = { R: P.red, O: P.orange, Y: P.yellow, G: P.green, B: P.blue, P: P.purple, K: P.pink, W: "#FFFFFF", D: "#3C4A52", L: "#B9C7D1", T: P.teal, N: "#A9713F" };
+const BUILDS = {
+  unicorn: ["...........Y..", "..........YW..", ".K.......WWWW.", "KK.......WWDW.", "KK......WWWWWK", ".K.PPWWWWWWW..", ".KWWPWWWWWW...", "..WWWWWWWWW...", "..WWWWWWWWW...", "..WW.WW.WWW...", "..WW....WW....", "..WW....WW....", "..YY....YY...."],
+  car: ["................", ".....BBBBBB.....", "....BWWBBWWB....", "....BWWBBWWB....", ".RRRRRRRRRRRRRR.", "YRRRRRRRRRRRRRRO", ".RDDRRRRRRRRDDR.", "..DD........DD.."],
+  castle: ["..R........R..", "..D........D..", "L.L.L....L.L.L", "LLLLL.LL.LLLLL", "LLLLLLLLLLLLLL", "LBLLLLLLLLLLBL", "LLLLLLNNLLLLLL", "LLLLLNNNNLLLLL", "LLLLLNNNNLLLLL", "GGGGGNNNNGGGGG"],
+  robot: [".....RR.....", ".....DD.....", "..LLLLLLLL..", "..LBBLLBBL..", "..LLLLLLLL..", "..LLRRRRLL..", "....DDDD....", ".YTTTTTTTTY.", ".YTTOOTTTTY.", ".YTTTTTTTTY.", "...TT..TT...", "..DDD..DDD.."],
+  rocket: ["....RR....", "...RRRR...", "...WWWW...", "..WWWWWW..", "..WWBBWW..", "..WWBBWW..", "..WWWWWW..", "..WWWWWW..", ".RWWWWWWR.", "RRWWWWWWRR", "RR.DDDD.RR", "...OYYO...", "....YY...."],
+  duck: ["....YYYY....", "...YYDYY....", "...YYYYOOO..", "...YYYY.....", "YY.YYYYYY...", "YYYYYYYYYY..", "YYYYWWYYYY..", ".YYYYYYYYY..", "..YYYYYYY...", "...OO.OO...."],
+};
+const BUILD_ORDER = ["unicorn", "car", "castle", "robot", "rocket", "duck"];
+const buildCache = {};
+/** split a picture into bricks (runs of one color, up to 4 studs wide), bottom row first */
+function buildPlan(id) {
+  if (buildCache[id]) return buildCache[id];
+  const rows = BUILDS[id], H = rows.length, W = rows[0].length, bricks = [], rnd = seeded(id.length * 31 + H);
+  for (let r = H - 1; r >= 0; r--) {
+    let c = 0;
+    while (c < W) {
+      const ch = rows[r][c];
+      if (ch === ".") { c++; continue; }
+      let n = 1; const max = 2 + Math.floor(rnd() * 3);
+      while (n < max && c + n < W && rows[r][c + n] === ch) n++;
+      bricks.push({ r, c, n, color: BRICK_COLORS[ch] });
+      c += n;
+    }
+  }
+  return (buildCache[id] = { W, H, bricks });
+}
+function drawBrick(ctx, x, y, cell, n, color) {
+  const w = cell * n, lip = shade(color), sw = cell * 0.52, sh = cell * 0.2;
+  for (let i = 0; i < n; i++) {          // studs on top
+    fillRR(ctx, x + i * cell + (cell - sw) / 2, y - sh, sw, sh + 2, sh * 0.5, lip);
+    fillRR(ctx, x + i * cell + (cell - sw) / 2, y - sh, sw, sh * 0.75, sh * 0.5, color);
+  }
+  fillRR(ctx, x + 0.5, y, w - 1, cell, cell * 0.14, lip);
+  fillRR(ctx, x + 0.5, y, w - 1, cell * 0.82, cell * 0.14, color);
+  ctx.globalAlpha = 0.3; fillRR(ctx, x + cell * 0.12, y + cell * 0.1, w - cell * 0.24, cell * 0.13, cell * 0.06, "#fff"); ctx.globalAlpha = 1;
+  rrect(ctx, x + 0.5, y, w - 1, cell, cell * 0.14); ctx.lineWidth = Math.max(1, cell * 0.06); ctx.strokeStyle = "rgba(20,40,60,0.35)"; ctx.stroke();
+}
+/** `p` 0...1 is how much is built; bricks drop in one after another */
+function drawBrickBuild(ctx, id, x, y, w, h, p, t, live) {
+  const plan = buildPlan(id), cr = Math.min(22, w * 0.1);
+  // sky card with clouds and a green baseplate
+  fillRR(ctx, x, y + 5, w, h, cr, P.border);
+  ctx.save(); rrect(ctx, x, y, w, h, cr); ctx.clip();
+  const g = ctx.createLinearGradient(0, y, 0, y + h); g.addColorStop(0, "#8FD3FF"); g.addColorStop(1, "#D9F1FF"); ctx.fillStyle = g; ctx.fillRect(x, y, w, h);
+  ctx.globalAlpha = 0.9;
+  for (const [u, v, k] of [[0.18, 0.16, 1], [0.72, 0.1, 0.8], [0.9, 0.3, 0.6]]) { const cx = x + w * u + (live ? Math.sin(t * 0.2 + u * 9) * 6 : 0), cy = y + h * v, cs = w * 0.07 * k; circ(ctx, cx, cy, cs, "#fff"); circ(ctx, cx + cs, cy + cs * 0.2, cs * 0.8, "#fff"); circ(ctx, cx - cs, cy + cs * 0.25, cs * 0.7, "#fff"); }
+  ctx.globalAlpha = 1;
+  const baseH = h * 0.1, cell = Math.min((w * 0.9) / plan.W, (h - baseH - h * 0.08) / (plan.H + 0.4));
+  const ox = x + (w - cell * plan.W) / 2, floor = y + h - baseH;
+  ctx.fillStyle = P.greenLip; ctx.fillRect(x, floor, w, baseH); ctx.fillStyle = P.green; ctx.fillRect(x, floor, w, baseH * 0.7);
+  for (let sx = x + cell * 0.3; sx < x + w; sx += cell) { fillRR(ctx, sx, floor - cell * 0.16, cell * 0.5, cell * 0.2, cell * 0.08, P.green); }
+  // bricks: the ones already placed, then the one dropping in
+  const N = plan.bricks.length, fi = Math.min(p / 0.985, 1) * N, DROP = 0.9;
+  for (let i = 0; i < N; i++) {
+    const b = plan.bricks[i], u = fi - i;       // 0 = starts falling, 1 = lands (in "bricks" of time)
+    if (u <= 0) break;
+    const bx = ox + b.c * cell, by = floor - (plan.H - b.r) * cell;
+    let dy = 0;
+    if (u < DROP) { const k = u / DROP; dy = -(1 - k * k) * (by - y + cell * 2); }
+    else if (u < DROP + 0.5) dy = -Math.sin((u - DROP) / 0.5 * Math.PI) * cell * 0.12;     // tiny settle bounce
+    drawBrick(ctx, bx, by + dy, cell, b.n, b.color);
+  }
+  ctx.restore();
+  rrect(ctx, x, y, w, h, cr); ctx.lineWidth = 3; ctx.strokeStyle = P.border; ctx.stroke();
+  return Math.floor(Math.max(fi - DROP, 0));      // how many have landed
+}
+function drawBrickTimer(ctx, w, h, sess, t) {
+  const landed = drawBrickBuild(ctx, sess.pet, 0, 0, w, h - 8, sess.progress, t, true);
+  if (landed > (sess.landed || 0)) { AudioEngine.playQuiet("clack", 0.1); buzz(6); }
+  sess.landed = landed;
+  return h - 8;
+}
+
 // ---- small pictures on the home screen theme tiles
 function drawThemeIcon(ctx, w, h, theme, t) {
   if (theme.timer === "ring") { const s = Math.min(w / 1.05, h / 1.2); drawMascot(ctx, w / 2 - s / 2, h / 2 - s * 0.6, s, { costume: theme.costume }, t); return; }
@@ -1510,6 +1591,7 @@ function drawThemeIcon(ctx, w, h, theme, t) {
     }
     ctx.restore(); rrect(ctx, x, y, S, S, 14); ctx.lineWidth = 3; ctx.strokeStyle = P.border; ctx.stroke(); return;
   }
+  if (theme.timer === "bricks") { drawBrickBuild(ctx, variants.current(theme), 2, 0, w - 4, h - 6, 0.55, t, false); return; }
   if (theme.timer === "rocket") { drawCockpit(ctx, w, h, 0.4, t, { mini: true }); return; }
   if (theme.timer === "coloring") {
     let pw = w, ph = pw * 0.75; if (ph > h) { ph = h; pw = ph / 0.75; }
@@ -2041,6 +2123,7 @@ function frame(nowMs) {
     else if (s.theme.timer === "sandJar") bottom = drawSandTimer(ctx, w, room, s, t);
     else if (s.theme.timer === "coloring") bottom = drawColoringTimer(ctx, w, room, s, t);
     else if (s.theme.timer === "rocket") bottom = drawRocketTimer(ctx, w, room, s, t);
+    else if (s.theme.timer === "bricks") bottom = drawBrickTimer(ctx, w, room, s, t);
     else bottom = drawTiles(ctx, w, room, s, t);
     const pill = $("pill"); pill.style.top = (bottom - pillH / 2) + "px";
     const left = Math.ceil(s.remaining); pill.textContent = Math.floor(left / 60) + ":" + String(left % 60).padStart(2, "0");

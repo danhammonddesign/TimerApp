@@ -61,19 +61,19 @@
     "voice": "af_heart",
     "speed": 1.0,
     "lines": {
-      "intro": "Hello, sparkle friend! Let's make a magic rainbow smile!",
-      "top_front": "First, brush your top front teeth in little sparkly circles!",
-      "top_left": "Prance over to the top teeth on the left side!",
-      "top_right": "Now twirl to the top teeth on the right side!",
+      "intro": "Hello, master builder! Let's stack some bricks while we brush!",
+      "top_front": "First, brush your top front teeth in little circles!",
+      "top_left": "Click over to the top teeth on the left side!",
+      "top_right": "Now snap over to the top teeth on the right side!",
       "top_inside": "Turn your brush and polish the inside of your top teeth!",
-      "bottom_front": "Halfway to the rainbow! Now brush your bottom front teeth.",
-      "bottom_left": "Skip down to the bottom teeth on the left side!",
-      "bottom_right": "Now the bottom teeth on the right side. So magical!",
-      "bottom_inside": "Last sparkle! Brush the inside of your bottom teeth, and give your tongue a little brush!",
-      "finale": "Ta-da! A rainbow appeared! Your smile is pure magic!",
-      "cheer1": "Sparkle, sparkle, you're doing amazing!",
-      "cheer2": "Your teeth are glittering!",
-      "cheer3": "Unicorns love clean teeth!"
+      "bottom_front": "Halfway built! Now brush your bottom front teeth.",
+      "bottom_left": "Stack down to the bottom teeth on the left side!",
+      "bottom_right": "Now the bottom teeth on the right side. Brick by brick!",
+      "bottom_inside": "Last few bricks! Brush the inside of your bottom teeth, and give your tongue a little brush!",
+      "finale": "Ta-da! It's all built! And your smile is sparkling clean!",
+      "cheer1": "Click, clack, great brushing!",
+      "cheer2": "Look at it grow!",
+      "cheer3": "What are we building? Keep brushing to find out!"
     }
   },
   "robot": {
