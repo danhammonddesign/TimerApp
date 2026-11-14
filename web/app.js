@@ -15,7 +15,7 @@ const THEMES = [
     bg: ["#1B2A4A", "#0F1830"], primary: P.red, lip: P.redLip, light: "#FF9A9A", text: "#FFFFFF",
     shapes: [P.red, P.yellow, P.blue, P.green], finale: "Board full!",
     stickers: S("marble", [["🎱","Eight Ball","common"],["🎯","Bullseye","common"],["🪀","Yo-yo","common"],["🔮","Crystal Orb","rare"],["🧿","Lucky Eye","rare"],["💎","Diamond Marble","legendary"]]) },
-  { id: "sand", name: "Sand Art", tagline: "Fill the jar with rainbow sand!", costume: "sunHat", timer: "sandJar", jarPets: ["cat", "dog", "shark"],
+  { id: "sand", name: "Sand Art", tagline: "Fill the jar with rainbow sand!", costume: "sunHat", timer: "sandJar", jarPets: ["cat", "bunny", "shark", "owl", "dog", "turtle", "bear", "fish"],
     bg: ["#2A1E4A", "#160F2C"], primary: P.teal, lip: P.tealLip, light: "#8FF0E6", text: "#FFFFFF",
     shapes: [P.yellow, P.pink, P.teal, P.orange], finale: "Jar full!",
     stickers: S("sand", [["⏳","Hourglass","common"],["🌵","Cactus","common"],["🐪","Camel","common"],["🐱","Kitty Jar","rare"],["🐶","Puppy Jar","rare"],["🦈","Golden Shark","legendary"]]) },
@@ -27,7 +27,7 @@ const THEMES = [
     bg: ["#131F3A", "#241650"], primary: P.blue, lip: P.blueLip, light: "#6FE3FF", text: "#FFFFFF",
     shapes: [P.yellow, P.blue, P.purple, "#FFFFFF"], finale: "Mission complete!",
     stickers: S("space", [["🌙","Moon Buddy","common"],["⭐️","Super Star","common"],["☄️","Comet Zoom","common"],["🛸","Flying Saucer","rare"],["👽","Alien Pal","rare"],["🌌","Galaxy Swirl","legendary"]]) },
-  { id: "ocean", name: "Ocean Dive", tagline: "Fill the crab with rainbow sand!", costume: "snorkel", timer: "sandJar", jarPets: ["crab"],
+  { id: "ocean", name: "Ocean Dive", tagline: "Fill the crab with rainbow sand!", costume: "snorkel", timer: "sandJar", jarPets: ["crab", "turtle", "fish"],
     bg: ["#0C6FA8", "#073A63"], primary: P.yellow, lip: P.yellowLip, light: "#FFE46B", text: "#5A3D00",
     shapes: ["#FFFFFF", "#6FE3FF", P.yellow], finale: "Crab full!",
     stickers: S("ocean", [["🐚","Shiny Shell","common"],["🦀","Snappy Crab","common"],["🐢","Turtle Pal","common"],["🐬","Dolphin Flip","rare"],["🐙","Octo Hugs","rare"],["🐳","Whale King","legendary"]]) },
@@ -44,6 +44,15 @@ const THEMES = [
     shapes: [P.orange, P.border, P.blue], finale: "Fully charged!",
     stickers: S("robot", [["⚙️","Gear Spin","common"],["💡","Bright Idea","common"],["🔧","Wrench","common"],["🛰️","Satellite","rare"],["🦾","Robo Arm","rare"],["👾","Pixel Legend","legendary"]]) },
 ];
+const PICTURES = ["cat", "dog", "bunny", "panda", "fox", "frog"];
+const VARIANT_NAMES = { cat: "Kitty", dog: "Puppy", shark: "Shark", crab: "Crab", bunny: "Bunny", owl: "Owl", turtle: "Turtle", bear: "Bear", fish: "Fish" };
+/** which jar animal / hidden picture each theme uses next; they take turns */
+const variants = {
+  list(theme) { return theme.timer === "sandJar" ? theme.jarPets : theme.timer === "tiles" ? PICTURES : []; },
+  index(theme) { const l = this.list(theme); return l.length ? (store.get("variant." + theme.id, 0) % l.length + l.length) % l.length : 0; },
+  current(theme) { return this.list(theme)[this.index(theme)]; },
+  advance(theme) { if (this.list(theme).length) store.set("variant." + theme.id, this.index(theme) + 1); },
+};
 const RARITY = {
   common: { label: "Cool find", color: P.blue, lip: P.blueLip, weight: 60 },
   rare: { label: "Rare!", color: P.purple, lip: P.purpleLip, weight: 30 },
@@ -542,6 +551,11 @@ const JARS = {
   cat: { aspect: 0.85, add: [["e", 0.08, 0.36, 0.92, 1.0], ["e", 0.14, 0.08, 0.86, 0.62], ["p", [[0.18, 0.26], [0.2, 0], [0.4, 0.12]]], ["p", [[0.82, 0.26], [0.8, 0], [0.6, 0.12]]]], cut: [], mouth: 0.5 },
   dog: { aspect: 0.85, add: [["e", 0.12, 0.44, 0.88, 1.0], ["e", 0.2, 0.06, 0.8, 0.58], ["e", 0.04, 0.1, 0.3, 0.5], ["e", 0.7, 0.1, 0.96, 0.5]], cut: [], mouth: 0.5 },
   shark: { aspect: 1.35, add: [["e", 0.02, 0.3, 0.8, 0.88], ["p", [[0.34, 0.36], [0.5, 0.02], [0.6, 0.36]]], ["p", [[0.72, 0.58], [0.98, 0.22], [0.9, 0.58], [0.98, 0.94]]], ["p", [[0.32, 0.8], [0.28, 0.99], [0.5, 0.82]]]], cut: [], mouth: 0.42 },
+  bunny: { aspect: 0.75, add: [["e", 0.14, 0.44, 0.86, 1.0], ["e", 0.2, 0.2, 0.8, 0.68], ["e", 0.24, 0.0, 0.42, 0.44], ["e", 0.58, 0.0, 0.76, 0.44]], cut: [], mouth: 0.5 },
+  owl: { aspect: 0.8, add: [["e", 0.1, 0.12, 0.9, 1.0], ["p", [[0.12, 0.34], [0.14, 0.0], [0.4, 0.18]]], ["p", [[0.88, 0.34], [0.86, 0.0], [0.6, 0.18]]]], cut: [], mouth: 0.5 },
+  turtle: { aspect: 1.4, add: [["e", 0.1, 0.16, 0.8, 0.84], ["e", 0.72, 0.36, 0.98, 0.62], ["e", 0.14, 0.68, 0.32, 0.96], ["e", 0.56, 0.68, 0.74, 0.96], ["p", [[0.12, 0.54], [0.0, 0.6], [0.14, 0.64]]]], cut: [], mouth: 0.45 },
+  bear: { aspect: 0.95, add: [["e", 0.08, 0.14, 0.92, 1.0], ["e", 0.04, 0.0, 0.34, 0.32], ["e", 0.66, 0.0, 0.96, 0.32]], cut: [], mouth: 0.5 },
+  fish: { aspect: 1.4, add: [["e", 0.02, 0.18, 0.74, 0.86], ["p", [[0.66, 0.52], [1.0, 0.14], [0.9, 0.52], [1.0, 0.9]]], ["p", [[0.28, 0.24], [0.42, 0.02], [0.58, 0.22]]]], cut: [], mouth: 0.4 },
   crab: { aspect: 1.3, add: [["e", 0.2, 0.4, 0.8, 1.0], ["e", 0.01, 0.06, 0.27, 0.44], ["e", 0.73, 0.06, 0.99, 0.44],
     ["p", [[0.26, 0.66], [0.1, 0.42], [0.2, 0.36], [0.34, 0.54]]], ["p", [[0.74, 0.66], [0.9, 0.42], [0.8, 0.36], [0.66, 0.54]]],
     ["e", 0.37, 0.22, 0.47, 0.52], ["e", 0.53, 0.22, 0.63, 0.52], ["e", 0.07, 0.68, 0.27, 0.78], ["e", 0.73, 0.68, 0.93, 0.78], ["e", 0.1, 0.82, 0.3, 0.92], ["e", 0.7, 0.82, 0.9, 0.92]],
@@ -604,6 +618,21 @@ function drawJarFace(ctx, pet, x, y, w, h) {
   } else if (pet === "crab") {
     eye(0.42, 0.31, 0.8); eye(0.58, 0.31, 0.8); smile(0.5, 0.64, e * 1.1);
     ctx.globalAlpha = 0.7; for (const u of [0.36, 0.64]) { const [cx, cy] = P_(u, 0.68); ell(ctx, cx, cy, e * 0.6, e * 0.35, P.pink); } ctx.globalAlpha = 1;
+  } else if (pet === "bunny") {
+    eye(0.4, 0.42); eye(0.6, 0.42);
+    const [nx, ny] = P_(0.5, 0.5); ell(ctx, nx, ny, e * 0.5, e * 0.34, P.pink); smile(0.5, 0.53, e * 0.6);
+  } else if (pet === "owl") {
+    for (const u of [0.34, 0.66]) { const [cx, cy] = P_(u, 0.36); circ(ctx, cx, cy, e * 1.6, "rgba(255,255,255,0.85)"); }
+    eye(0.34, 0.36, 1.5); eye(0.66, 0.36, 1.5);
+    const [bx, by] = P_(0.5, 0.48); tri(ctx, bx, by, e * 1.1, e * 1.1, P.orange, 180);
+  } else if (pet === "bear") {
+    eye(0.36, 0.46); eye(0.64, 0.46);
+    const [mx, my] = P_(0.5, 0.64); ell(ctx, mx, my, e * 1.6, e * 1.15, "rgba(255,255,255,0.75)");
+    ell(ctx, mx, my - e * 0.45, e * 0.6, e * 0.4, P.ink); smile(0.5, 0.65, e * 0.55);
+  } else if (pet === "turtle") {
+    eye(0.88, 0.45, 0.8); smile(0.86, 0.5, e * 0.8, 0.2, 2.4);
+  } else if (pet === "fish") {
+    eye(0.18, 0.44); smile(0.12, 0.54, e * 1.1, 0.4, 2.6);
   } else {
     eye(0.18, 0.5); smile(0.16, 0.56, e * 1.5, 0.3, 2.8);
     ctx.globalAlpha = 0.5; for (let i = 0; i < 3; i++) { const [cx, cy] = P_(0.32 + i * 0.035, 0.55); capsule(ctx, cx, cy, 3, h * 0.1, P.ink); } ctx.globalAlpha = 1;
@@ -672,7 +701,7 @@ function petPicture(pet, w, h) {
   if (picCache[key]) return picCache[key];
   const c = document.createElement("canvas"); c.width = Math.ceil(w * dpr); c.height = Math.ceil(h * dpr);
   const x = c.getContext("2d"); x.setTransform(dpr, 0, 0, dpr, 0, 0);
-  x.fillStyle = pet === "cat" ? "#FFE8A3" : "#BDE8FF"; x.fillRect(0, 0, w, h);
+  x.fillStyle = { cat: "#FFE8A3", dog: "#BDE8FF", bunny: "#D9F7C9", panda: "#FFD6E5", fox: "#CDEBFF", frog: "#FFF1B8" }[pet] || "#FFE8A3"; x.fillRect(0, 0, w, h);
   for (let i = 0; i < 8; i++) {
     const a = hash(i * 7 + 40), b = hash(i * 13 + 41), cc = hash(i * 17 + 42);
     if (i % 2 === 0) { x.globalAlpha = 0.55; heart(x, w * b, h * cc, 14 + a * 16, P.pink); x.globalAlpha = 1; }
@@ -691,6 +720,51 @@ function drawPetFace(ctx, pet, x, y, s) {
   const A = (u, v) => [x + u * s, y + v * s];
   const eyes = (v, spread) => { for (const k of [-1, 1]) { const [cx, cy] = A(0.5 + k * spread, v); ell(ctx, cx, cy, s * 0.055, s * 0.07, P.ink); circ(ctx, cx + s * 0.015, cy - s * 0.03, s * 0.02, "#fff"); } };
   const cheeks = v => { ctx.globalAlpha = 0.6; for (const k of [-1, 1]) { const [cx, cy] = A(0.5 + k * 0.25, v); ell(ctx, cx, cy, s * 0.05, s * 0.03, P.pink); } ctx.globalAlpha = 1; };
+  if (pet === "bunny") {
+    const fur = "#F4F1FA", furLip = "#D9D2E8";
+    for (const [u, d] of [[0.36, -8], [0.64, 8]]) { ell(ctx, ...A(u, 0.22), s * 0.09, s * 0.23, fur, rad(d)); ell(ctx, ...A(u, 0.24), s * 0.045, s * 0.16, P.cheek, rad(d)); }
+    const [hx, hy] = A(0.5, 0.62); ell(ctx, hx, hy + s * 0.02, s * 0.36, s * 0.3, furLip); ell(ctx, hx, hy, s * 0.36, s * 0.3, fur);
+    eyes(0.58, 0.14); cheeks(0.7);
+    ell(ctx, ...A(0.5, 0.68), s * 0.04, s * 0.028, P.pink);
+    fillRR(ctx, ...A(0.465, 0.73), s * 0.035, s * 0.06, 3, "#fff"); fillRR(ctx, ...A(0.5, 0.73), s * 0.035, s * 0.06, 3, "#fff");
+    ctx.lineWidth = s * 0.012; ctx.strokeStyle = P.ink; ctx.lineCap = "round";
+    for (const k of [-1, 1]) { const [cx, cy] = A(0.5 + k * 0.03, 0.705); ctx.beginPath(); ctx.arc(cx, cy, s * 0.03, 0.2, Math.PI - 0.2); ctx.stroke(); }
+    ctx.lineCap = "butt";
+    return;
+  }
+  if (pet === "panda") {
+    const [hx, hy] = A(0.5, 0.58);
+    circ(ctx, ...A(0.24, 0.3), s * 0.11, P.ink); circ(ctx, ...A(0.76, 0.3), s * 0.11, P.ink);
+    ell(ctx, hx, hy + s * 0.02, s * 0.4, s * 0.34, "#D9DEE2"); ell(ctx, hx, hy, s * 0.4, s * 0.34, "#FFFFFF");
+    ell(ctx, ...A(0.35, 0.56), s * 0.09, s * 0.12, P.ink, rad(25)); ell(ctx, ...A(0.65, 0.56), s * 0.09, s * 0.12, P.ink, rad(-25));
+    for (const u of [0.36, 0.64]) { circ(ctx, ...A(u, 0.55), s * 0.035, "#fff"); circ(ctx, ...A(u, 0.555), s * 0.022, P.ink); circ(ctx, ...A(u + 0.008, 0.545), s * 0.008, "#fff"); }
+    cheeks(0.7);
+    ell(ctx, ...A(0.5, 0.67), s * 0.05, s * 0.032, P.ink);
+    ctx.lineWidth = s * 0.014; ctx.strokeStyle = P.ink; ctx.lineCap = "round";
+    for (const k of [-1, 1]) { const [cx, cy] = A(0.5 + k * 0.035, 0.71); ctx.beginPath(); ctx.arc(cx, cy, s * 0.035, 0, Math.PI); ctx.stroke(); }
+    ctx.lineCap = "butt";
+    return;
+  }
+  if (pet === "fox") {
+    const fur = "#FF8A3D", furLip = "#E06B22";
+    for (const [u, d] of [[0.24, -18], [0.76, 18]]) { tri(ctx, ...A(u, 0.26), s * 0.26, s * 0.34, fur, d); tri(ctx, ...A(u, 0.2), s * 0.11, s * 0.14, P.ink, d); }
+    ctx.beginPath(); ctx.moveTo(...A(0.1, 0.42)); ctx.quadraticCurveTo(...A(0.5, 0.18), ...A(0.9, 0.42)); ctx.quadraticCurveTo(...A(0.86, 0.72), ...A(0.5, 0.88)); ctx.quadraticCurveTo(...A(0.14, 0.72), ...A(0.1, 0.42)); ctx.closePath();
+    ctx.save(); ctx.translate(0, s * 0.02); ctx.fillStyle = furLip; ctx.fill(); ctx.restore(); ctx.fillStyle = fur; ctx.fill();
+    ctx.beginPath(); ctx.moveTo(...A(0.16, 0.56)); ctx.quadraticCurveTo(...A(0.5, 0.52), ...A(0.84, 0.56)); ctx.quadraticCurveTo(...A(0.72, 0.8), ...A(0.5, 0.88)); ctx.quadraticCurveTo(...A(0.28, 0.8), ...A(0.16, 0.56)); ctx.closePath(); ctx.fillStyle = "#FFF4E8"; ctx.fill();
+    eyes(0.5, 0.14); cheeks(0.64);
+    ell(ctx, ...A(0.5, 0.74), s * 0.045, s * 0.032, P.ink);
+    return;
+  }
+  if (pet === "frog") {
+    const g = "#7BD94A", gl = "#5BB42F";
+    for (const u of [0.3, 0.7]) { circ(ctx, ...A(u, 0.34), s * 0.14, gl); circ(ctx, ...A(u, 0.33), s * 0.14, g); circ(ctx, ...A(u, 0.33), s * 0.09, "#fff"); circ(ctx, ...A(u, 0.34), s * 0.055, P.ink); circ(ctx, ...A(u + 0.02, 0.31), s * 0.018, "#fff"); }
+    const [hx, hy] = A(0.5, 0.62); ell(ctx, hx, hy + s * 0.02, s * 0.44, s * 0.27, gl); ell(ctx, hx, hy, s * 0.44, s * 0.27, g);
+    for (const u of [0.32, 0.68]) { const [cx, cy] = A(u, 0.62); ctx.globalAlpha = 0.6; ell(ctx, cx, cy, s * 0.06, s * 0.035, P.pink); ctx.globalAlpha = 1; }
+    ctx.lineWidth = s * 0.02; ctx.strokeStyle = "#2F6B18"; ctx.lineCap = "round";
+    ctx.beginPath(); ctx.arc(...A(0.5, 0.6), s * 0.16, 0.35, Math.PI - 0.35); ctx.stroke(); ctx.lineCap = "butt";
+    circ(ctx, ...A(0.46, 0.57), s * 0.01, "#2F6B18"); circ(ctx, ...A(0.54, 0.57), s * 0.01, "#2F6B18");
+    return;
+  }
   if (pet === "cat") {
     const fur = "#FFA94D", furLip = "#E88A2E";
     for (const [u, d] of [[0.24, -14], [0.76, 14]]) { tri(ctx, ...A(u, 0.22), s * 0.3, s * 0.32, fur, d); tri(ctx, ...A(u, 0.26), s * 0.15, s * 0.17, P.cheek, d); }
@@ -774,12 +848,12 @@ function drawThemeIcon(ctx, w, h, theme, t) {
     ctx.restore(); rrect(ctx, x, y, S, S, 14); ctx.lineWidth = 3; ctx.strokeStyle = P.border; ctx.stroke(); return;
   }
   if (theme.timer === "sandJar") {
-    const pet = theme.jarPets.includes("shark") ? "shark" : theme.jarPets[0], a = JARS[pet].aspect;
+    const pet = variants.current(theme), a = JARS[pet].aspect;
     let jw = w * 0.96, jh = jw / a; if (jh > h * 0.92) { jh = h * 0.92; jw = jh * a; }
     drawSandJar(ctx, pet, { x: (w - jw) / 2, y: (h - jh) / 2, w: jw, h: jh }, 0.5, t, {}); return;
   }
   // tiles: 3x3, half flipped, part of the cat showing
-  const S = Math.min(w, h), x = (w - S) / 2, y = (h - S) / 2, tl = S / 3, shown = [1, 3, 4, 8], pic = petPicture("cat", S, S), dpr = pic.width / S;
+  const S = Math.min(w, h), x = (w - S) / 2, y = (h - S) / 2, tl = S / 3, shown = [1, 3, 4, 8], pic = petPicture(variants.current(theme), S, S), dpr = pic.width / S;
   ctx.save(); rrect(ctx, x, y, S, S, 14); ctx.clip(); ctx.fillStyle = P.card; ctx.fillRect(x, y, S, S);
   for (const i of shown) ctx.drawImage(pic, (i % 3) * tl * dpr, Math.floor(i / 3) * tl * dpr, tl * dpr, tl * dpr, x + (i % 3) * tl, y + Math.floor(i / 3) * tl, tl, tl);
   for (let i = 0; i < 9; i++) if (!shown.includes(i)) drawTileCover(ctx, theme, i + Math.floor(i / 3) * 2, x + (i % 3 + 0.5) * tl, y + (Math.floor(i / 3) + 0.5) * tl, tl - 4, 1, 0, 15, 7, 2.5);
@@ -850,7 +924,7 @@ class Session {
     this.theme = theme; this.duration = duration; this.elapsed = 0; this.zone = 0; this.paused = false; this.finished = false;
     this.countdown = null; this.cheered = new Set(); this.cheers = shuffle(["cheer1", "cheer2", "cheer3"]);
     this.seed = Math.floor(Math.random() * 1e9) + 1;
-    this.pet = theme.timer === "sandJar" ? theme.jarPets[Math.floor(Math.random() * theme.jarPets.length)] : (Math.random() < 0.5 ? "cat" : "dog");
+    this.pet = variants.current(theme) || "cat";
   }
   get zoneLength() { return this.duration / 8; }
   get progress() { return Math.min(this.elapsed / this.duration, 1); }
@@ -903,7 +977,7 @@ const UI = {
   buildHome() {
     const th = themeById(settings.themeId);
     this.setThemeVars(th);
-    $("tagline").textContent = th.tagline;
+    $("tagline").textContent = this.tagline(th);
     $("streak").textContent = "🔥 " + rewards.streak;
     $("bookCount").textContent = rewards.collected + "/" + rewards.total;
     $("musicBtn").classList.toggle("off", !settings.music);
@@ -929,9 +1003,23 @@ const UI = {
     for (const c of $("durations").children) c.classList.toggle("sel", +c.dataset.sec === settings.duration);
     AudioEngine.loadTheme(th.id);
   },
+  tagline(th) {
+    const list = variants.list(th);
+    if (th.timer === "sandJar" && list.length > 1) return `Fill the ${VARIANT_NAMES[variants.current(th)].toLowerCase()} jar with rainbow sand!`;
+    if (th.timer === "tiles") return `Flip the tiles to find secret pet #${variants.index(th) + 1}!`;
+    return th.tagline;
+  },
   pickTheme(t) {
     AudioEngine.unlock();
-    if (t.id === settings.themeId) return;
+    if (t.id === settings.themeId) {
+      // tap again: switch to the next jar animal / hidden picture
+      if (variants.list(t).length > 1) {
+        variants.advance(t); AudioEngine.play("tap"); buzz(8);
+        $("tagline").classList.remove("pop"); void $("tagline").offsetWidth; $("tagline").classList.add("pop");
+        this.buildHome();
+      }
+      return;
+    }
     settings.themeId = t.id; store.set("theme", t.id);
     AudioEngine.play("tap"); buzz(8);
     $("tagline").classList.remove("pop"); void $("tagline").offsetWidth; $("tagline").classList.add("pop");
@@ -983,6 +1071,7 @@ const UI = {
   // ---------- finale
   finish() {
     const s = this.session, th = s.theme, sticker = rewards.award(th);
+    variants.advance(th);
     this.releaseWake();
     $("countdown").innerHTML = "";
     this.finale = { phase: "boom", t0: performance.now() / 1000, sticker, isNew: rewards.lastWasNew, giftShake: 0, lidOff: 0, opened: 0 };
