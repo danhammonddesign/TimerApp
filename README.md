@@ -41,6 +41,16 @@ the side of the mouth being brushed, scrubs with a toothbrush and wears a costum
 - Plays even with the silent switch on, keeps the screen awake while brushing, haptic buzzes,
   music ducks while the narrator talks, music/voice toggles on the home screen.
 
+## Use it in a browser (no Xcode needed)
+
+`web/` is a browser version of the whole app: same themes, narrator, timers, sounds and sticker book.
+It's published as a web page you can open in Safari on the iPhone and add to the Home Screen
+(Share → Add to Home Screen). Stickers and the streak are saved in that browser.
+
+To run it from this folder instead, copy the audio next to it and serve the folder:
+the page loads `audio/<name>.wav` and `audio/voice_<theme>_<line>.mp4`
+(the `.m4a` voice files, renamed to `.mp4`).
+
 ## Run it on your iPhone
 
 You need a Mac with **Xcode 15 or newer** (free on the Mac App Store), or **Swift Playgrounds** on iPad/Mac.
