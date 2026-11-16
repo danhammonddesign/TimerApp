@@ -80,18 +80,18 @@
     "voice": "am_echo",
     "speed": 1.0,
     "lines": {
-      "intro": "Beep boop! Robot power-up starting. Activate toothbrush!",
+      "intro": "Beep boop! Marble run starting. Activate toothbrush!",
       "top_front": "Scanning top front teeth. Brush in little circles!",
       "top_left": "Moving to the top teeth on the left side. Beep!",
       "top_right": "Now the top teeth on the right side. Boop!",
       "top_inside": "Rotate brush. Clean the inside of your top teeth!",
-      "bottom_front": "Power at fifty percent! Now brush your bottom front teeth.",
+      "bottom_front": "Tube is fifty percent full! Now brush your bottom front teeth.",
       "bottom_left": "Moving down to the bottom teeth on the left side!",
       "bottom_right": "Now the bottom teeth on the right side. Systems go!",
       "bottom_inside": "Final program! Brush the inside of your bottom teeth, and scrub that tongue!",
-      "finale": "Power level: one hundred percent! Super clean teeth unlocked!",
+      "finale": "Tube full! Picture complete! Super clean teeth unlocked!",
       "cheer1": "Excellent brushing, human!",
-      "cheer2": "Germ zapper at full power!",
+      "cheer2": "Marbles rolling at full speed!",
       "cheer3": "Beep beep! Your teeth are shiny!"
     }
   },

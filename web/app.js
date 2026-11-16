@@ -39,16 +39,16 @@ const THEMES = [
     bg: ["#8A4FD8", "#3A1B6E"], primary: P.pink, lip: P.pinkLip, light: "#FFC2E8", text: "#FFFFFF",
     shapes: [P.pink, P.yellow, "#FFFFFF", P.blue], finale: "All built!",
     stickers: S("rainbow", [["🌸","Blossom","common"],["🧁","Cupcake","common"],["🍭","Swirly Pop","common"],["🦋","Butterfly","rare"],["👑","Royal Crown","rare"],["🦄","Golden Unicorn","legendary"]]) },
-  { id: "robot", name: "Robot Power", tagline: "Charge up to 100%!", costume: "robot", timer: "ring",
+  { id: "robot", name: "Marble Run", tagline: "What picture will the marbles make?", costume: "robot", timer: "tube",
     bg: ["#1C2A31", "#0E171B"], primary: P.orange, lip: P.orangeLip, light: "#FFC56B", text: "#FFFFFF",
-    shapes: [P.orange, P.border, P.blue], finale: "Fully charged!",
+    shapes: [P.orange, P.border, P.blue], finale: "Picture complete!",
     stickers: S("robot", [["⚙️","Gear Spin","common"],["💡","Bright Idea","common"],["🔧","Wrench","common"],["🛰️","Satellite","rare"],["🦾","Robo Arm","rare"],["👾","Pixel Legend","legendary"]]) },
 ];
 const PICTURES = ["cat", "dog", "bunny", "panda", "fox", "frog"];
 const VARIANT_NAMES = { cat: "Kitty", dog: "Puppy", shark: "Shark", crab: "Crab", bunny: "Bunny", owl: "Owl", turtle: "Turtle", bear: "Bear", fish: "Fish" };
 /** which jar animal / hidden picture each theme uses next; they take turns */
 const variants = {
-  list(theme) { return theme.timer === "sandJar" ? theme.jarPets : theme.timer === "tiles" ? PICTURES : theme.timer === "coloring" ? DINO_ORDER : theme.timer === "bricks" ? BUILD_ORDER : []; },
+  list(theme) { return theme.timer === "sandJar" ? theme.jarPets : theme.timer === "tiles" ? PICTURES : theme.timer === "coloring" ? DINO_ORDER : theme.timer === "bricks" ? BUILD_ORDER : theme.timer === "tube" ? TUBE_ORDER : []; },
   index(theme) { const l = this.list(theme); return l.length ? (store.get("variant." + theme.id, 0) % l.length + l.length) % l.length : 0; },
   current(theme) { return this.list(theme)[this.index(theme)]; },
   advance(theme) { if (this.list(theme).length) store.set("variant." + theme.id, this.index(theme) + 1); },
@@ -1579,6 +1579,93 @@ function drawBrickTimer(ctx, w, h, sess, t) {
   return h - 8;
 }
 
+// ---- Marble Run: marbles roll down a snaking tube and line up into a picture
+const TUBE_BG = "#5B6F80";
+const TUBE_PICS = {
+  heart: ["...........", "..RR...RR..", ".RRRR.RRRR.", ".RRRRRRRRR.", ".RRRRRRRRR.", "..RRRRRRR..", "...RRRRR...", "....RRR....", ".....R.....", "..........."],
+  smiley: ["...YYYYY...", "..YYYYYYY..", ".YYYYYYYYY.", ".YYDYYYDYY.", ".YYDYYYDYY.", ".YYYYYYYYY.", ".YDYYYYYDY.", ".YYDDDDDYY.", "..YYYYYYY..", "...YYYYY..."],
+  robot: [".....R.....", ".....D.....", "..LLLLLLL..", "..LBBLBBL..", "..LBBLBBL..", "..LLLLLLL..", "..LDRDRDL..", "..LLLLLLL..", "...TT.TT...", "..........."],
+  star: [".....Y.....", ".....Y.....", "....YYY....", "YYYYYYYYYYY", ".YYYYYYYYY.", "..YYYYYYY..", "..YYYYYYY..", ".YYYY.YYYY.", ".YY.....YY.", "..........."],
+  fish: ["...........", "....OOO....", "O..OOOOOO..", "OO.OOOOODO.", "OOOOOOOOOO.", "OOOOOWWOOO.", "OO.OOOOOOO.", "O..OOOOOO..", "....OOO....", "..........."],
+  flower: ["...........", "....KKK....", "...KKKKK...", "..KKKYKKK..", "...KKKKK...", "....KKK....", ".....G.....", "..GG.G.GG..", "...GGGGG...", ".....G....."],
+};
+const TUBE_ORDER = ["heart", "smiley", "robot", "star", "fish", "flower"];
+function tubeGeometry(x, y, w, h) {
+  const C = 11, R = 10, d = Math.min(w * 0.95 / (C + 1.273), h * 0.94 / ((R - 1) * 1.273 + 1.25)), s = d * 4 / Math.PI;   // bend arc = exactly 2 marbles
+  const xl = x + (w - (C - 1) * d) / 2, xr = xl + (C - 1) * d, y0 = y + (h - ((R - 1) * s)) / 2;
+  const startX = x - d, lead = xl - startX, rowLen = (C + 1) * d;
+  const N = R * C + (R - 1), total = lead + (R - 1) * rowLen + (C - 1) * d;
+  const pos = dist => {
+    if (dist < lead) return [startX + dist, y0];
+    const u = dist - lead, r = Math.min(Math.floor(u / rowLen), R - 1), v = u - r * rowLen, even = r % 2 === 0, yr = y0 + r * s;
+    if (v <= (C - 1) * d || r === R - 1) { const vv = Math.min(v, (C - 1) * d); return [even ? xl + vv : xr - vv, yr]; }
+    const a = (v - (C - 1) * d) / (2 * d) * Math.PI;
+    return [even ? xr + Math.sin(a) * s / 2 : xl - Math.sin(a) * s / 2, yr + s / 2 - Math.cos(a) * s / 2];
+  };
+  /** distance along the tube for slot k (0 = first spot after the entrance) */
+  const slotDist = k => { const r = Math.floor(k / (C + 1)), j = k - r * (C + 1); return lead + r * rowLen + j * d; };
+  const path = ctx => {
+    ctx.beginPath(); ctx.moveTo(startX, y0);
+    for (let r = 0; r < R; r++) {
+      const even = r % 2 === 0, yr = y0 + r * s;
+      ctx.lineTo(even ? xr : xl, yr);
+      if (r < R - 1) ctx.arc(even ? xr : xl, yr + s / 2, s / 2, -Math.PI / 2, Math.PI / 2, !even);
+    }
+  };
+  return { C, R, d, s, N, total, pos, slotDist, path };
+}
+function drawMarbleC(ctx, x, y, r, main, lip) {
+  circ(ctx, x, y, r, lip); circ(ctx, x, y - r * 0.1, r * 0.87, main);
+  ctx.globalAlpha = 0.7; circ(ctx, x - r * 0.36, y - r * 0.42, r * 0.24, "#fff"); ctx.globalAlpha = 1;
+}
+const tubeColorCache = {};
+function tubeColors(id, G) {
+  if (tubeColorCache[id]) return tubeColorCache[id];
+  const pic = TUBE_PICS[id], out = [];
+  for (let k = 0; k < G.N; k++) {
+    const r = Math.floor(k / (G.C + 1)), j = k - r * (G.C + 1);
+    const ch = j >= G.C ? "." : pic[r][r % 2 === 0 ? j : G.C - 1 - j];
+    const main = ch === "." ? TUBE_BG : BRICK_COLORS[ch];
+    out.push([main, shade(main)]);
+  }
+  return (tubeColorCache[id] = out);
+}
+/** `e` seconds elapsed of `duration`; marbles are timed so the tube is exactly full at the end */
+function drawMarbleTube(ctx, id, x, y, w, h, e, duration, t) {
+  const cr = Math.min(22, w * 0.1);
+  fillRR(ctx, x, y + 5, w, h, cr, P.border); fillRR(ctx, x, y, w, h, cr, "#16242C");
+  ctx.save(); rrect(ctx, x, y, w, h, cr); ctx.clip();
+  const G = tubeGeometry(x, y, w, h), colors = tubeColors(id, G), d = G.d;
+  // the glass tube: outer wall, dark inside
+  ctx.lineCap = "round"; ctx.lineJoin = "round";
+  G.path(ctx); ctx.lineWidth = d * 1.22; ctx.strokeStyle = "#7FA6C4"; ctx.stroke();
+  G.path(ctx); ctx.lineWidth = d * 1.06; ctx.strokeStyle = "#0E1A21"; ctx.stroke();
+  // marbles: marble i ends in slot N-1-i, so the tube fills from the bottom end backward
+  const finish = duration * 0.985, speed = G.total / 2.4;
+  let landed = 0;
+  for (let i = 0; i < G.N; i++) {
+    const k = G.N - 1 - i, target = G.slotDist(k), land = (i + 1) / G.N * finish, enter = land - target / speed;
+    if (e < enter) break;
+    const dist = Math.min((e - enter) * speed, target);
+    if (e >= land) landed++;
+    const [mx, my] = G.pos(dist);
+    drawMarbleC(ctx, mx, my, d / 2 * 0.94, colors[k][0], colors[k][1]);
+  }
+  // glass shine over everything
+  G.path(ctx); ctx.lineWidth = d * 1.06; ctx.strokeStyle = "rgba(255,255,255,0.07)"; ctx.stroke();
+  ctx.save(); ctx.translate(0, -d * 0.3); G.path(ctx); ctx.lineWidth = d * 0.1; ctx.strokeStyle = "rgba(255,255,255,0.22)"; ctx.stroke(); ctx.restore();
+  ctx.lineCap = "butt";
+  ctx.restore();
+  rrect(ctx, x, y, w, h, cr); ctx.lineWidth = 3; ctx.strokeStyle = P.border; ctx.stroke();
+  return landed;
+}
+function drawTubeTimer(ctx, w, h, sess, t) {
+  const landed = drawMarbleTube(ctx, sess.pet, 0, 0, w, h - 8, sess.elapsed, sess.duration, t);
+  if (landed > (sess.landed || 0)) AudioEngine.playQuiet("clack", 0.07);
+  sess.landed = landed;
+  return h - 8;
+}
+
 // ---- small pictures on the home screen theme tiles
 function drawThemeIcon(ctx, w, h, theme, t) {
   if (theme.timer === "ring") { const s = Math.min(w / 1.05, h / 1.2); drawMascot(ctx, w / 2 - s / 2, h / 2 - s * 0.6, s, { costume: theme.costume }, t); return; }
@@ -1591,6 +1678,7 @@ function drawThemeIcon(ctx, w, h, theme, t) {
     }
     ctx.restore(); rrect(ctx, x, y, S, S, 14); ctx.lineWidth = 3; ctx.strokeStyle = P.border; ctx.stroke(); return;
   }
+  if (theme.timer === "tube") { drawMarbleTube(ctx, variants.current(theme), 2, 0, w - 4, h - 6, 33, 60, t); return; }
   if (theme.timer === "bricks") { drawBrickBuild(ctx, variants.current(theme), 2, 0, w - 4, h - 6, 0.55, t, false); return; }
   if (theme.timer === "rocket") { drawCockpit(ctx, w, h, 0.4, t, { mini: true }); return; }
   if (theme.timer === "coloring") {
@@ -2124,6 +2212,7 @@ function frame(nowMs) {
     else if (s.theme.timer === "coloring") bottom = drawColoringTimer(ctx, w, room, s, t);
     else if (s.theme.timer === "rocket") bottom = drawRocketTimer(ctx, w, room, s, t);
     else if (s.theme.timer === "bricks") bottom = drawBrickTimer(ctx, w, room, s, t);
+    else if (s.theme.timer === "tube") bottom = drawTubeTimer(ctx, w, room, s, t);
     else bottom = drawTiles(ctx, w, room, s, t);
     const pill = $("pill"); pill.style.top = (bottom - pillH / 2) + "px";
     const left = Math.ceil(s.remaining); pill.textContent = Math.floor(left / 60) + ":" + String(left % 60).padStart(2, "0");
