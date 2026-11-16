@@ -1664,6 +1664,7 @@ function drawMarbleTube(ctx, id, x, y, w, h, e, duration, t) {
 }
 function drawTubeTimer(ctx, w, h, sess, t) {
   const landed = drawMarbleTube(ctx, sess.pet, 0, 0, w, h - 8, sess.elapsed, sess.duration, t);
+  
   if (landed > (sess.landed || 0)) AudioEngine.playQuiet("clack", 0.07);
   sess.landed = landed;
   return h - 8;
@@ -1964,7 +1965,7 @@ const UI = {
     const segs = $("segs"); segs.innerHTML = ZONES.map(() => '<div class="seg"><i></i></div>').join("");
     $("bubbleRow").classList.toggle("side", th.timer !== "ring");
     // the rocket cockpit gets the whole top of the screen; the narrator still reads each instruction
-    $("bubbleRow").hidden = th.timer === "rocket";
+    $("bubbleRow").hidden = th.timer === "rocket" || th.timer === "tube";
     $("sideMascot").hidden = th.timer === "ring";
     $("zoneBubble").className = "bubble " + (th.timer === "ring" ? "tail-down" : "tail-left");
     this.onZone(true);
@@ -2207,7 +2208,8 @@ function frame(nowMs) {
     if (s.theme.timer !== "ring") { const r = fitCanvas($("sideMascot")); drawMascot(r.ctx, 0, 0, Math.min(r.w, r.h / 1.15), { costume: s.theme.costume, mood: s.countdown ? "wow" : "happy", talking: AudioEngine.speaking, look: ZONES[z].look, brushing: true }, t); }
     const { ctx, w, h } = fitCanvas($("timerCanvas"));
     const pillH = $("pill").offsetHeight || 58;
-    const room = s.theme.timer === "ring" ? h : h - pillH / 2;
+    const below = s.theme.timer === "tube";      // time sits under the picture instead of over its bottom edge
+    const room = s.theme.timer === "ring" ? h : below ? h - pillH - 4 : h - pillH / 2;
     let bottom;
     if (s.theme.timer === "ring") bottom = drawRing(ctx, w, room - pillH / 2, s, t);
     else if (s.theme.timer === "plinko") bottom = drawPlinko(ctx, w, room, s);
@@ -2217,7 +2219,7 @@ function frame(nowMs) {
     else if (s.theme.timer === "bricks") bottom = drawBrickTimer(ctx, w, room, s, t);
     else if (s.theme.timer === "tube") bottom = drawTubeTimer(ctx, w, room, s, t);
     else bottom = drawTiles(ctx, w, room, s, t);
-    const pill = $("pill"); pill.style.top = (bottom - pillH / 2) + "px";
+    const pill = $("pill"); pill.style.top = (below ? bottom + 8 : bottom - pillH / 2) + "px";
     const left = Math.ceil(s.remaining); pill.textContent = Math.floor(left / 60) + ":" + String(left % 60).padStart(2, "0");
     pill.classList.toggle("hurry", s.remaining <= 10);
     const m = fitCanvas($("mouthCanvas")); drawMouth(m.ctx, m.w, m.h, z, s.theme, t);
