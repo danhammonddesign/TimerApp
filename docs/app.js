@@ -1582,16 +1582,16 @@ function drawBrickTimer(ctx, w, h, sess, t) {
 // ---- Marble Run: marbles roll down a snaking tube and line up into a picture
 const TUBE_BG = "#5B6F80";
 const TUBE_PICS = {
-  heart: ["...........", "..RR...RR..", ".RRRR.RRRR.", ".RRRRRRRRR.", ".RRRRRRRRR.", "..RRRRRRR..", "...RRRRR...", "....RRR....", ".....R.....", "..........."],
-  smiley: ["...YYYYY...", "..YYYYYYY..", ".YYYYYYYYY.", ".YYDYYYDYY.", ".YYDYYYDYY.", ".YYYYYYYYY.", ".YDYYYYYDY.", ".YYDDDDDYY.", "..YYYYYYY..", "...YYYYY..."],
-  robot: [".....R.....", ".....D.....", "..LLLLLLL..", "..LBBLBBL..", "..LBBLBBL..", "..LLLLLLL..", "..LDRDRDL..", "..LLLLLLL..", "...TT.TT...", "..........."],
-  star: [".....Y.....", ".....Y.....", "....YYY....", "YYYYYYYYYYY", ".YYYYYYYYY.", "..YYYYYYY..", "..YYYYYYY..", ".YYYY.YYYY.", ".YY.....YY.", "..........."],
-  fish: ["...........", "....OOO....", "O..OOOOOO..", "OO.OOOOODO.", "OOOOOOOOOO.", "OOOOOWWOOO.", "OO.OOOOOOO.", "O..OOOOOO..", "....OOO....", "..........."],
-  flower: ["...........", "....KKK....", "...KKKKK...", "..KKKYKKK..", "...KKKKK...", "....KKK....", ".....G.....", "..GG.G.GG..", "...GGGGG...", ".....G....."],
+  heart: [".........", ".RR...RR.", "RRRR.RRRR", "RRRRRRRRR", ".RRRRRRR.", "..RRRRR..", "...RRR...", "....R...."],
+  smiley: ["..YYYYY..", ".YYYYYYY.", "YYDYYYDYY", "YYYYYYYYY", "YDYYYYYDY", "YYDDDDDYY", ".YYYYYYY.", "..YYYYY.."],
+  robot: ["....R....", ".LLLLLLL.", ".LBBLBBL.", ".LLLLLLL.", ".LDRDRDL.", ".LLLLLLL.", "..TT.TT..", "........."],
+  star: ["....Y....", "....Y....", "YYYYYYYYY", ".YYYYYYY.", "..YYYYY..", "..YYYYY..", ".YYY.YYY.", ".Y.....Y."],
+  fish: [".........", "...OOO...", "O.OOOOOO.", "OOOOOODO.", "OOOOOOOOO", "OOOOWWOO.", "O.OOOOOO.", "...OOO..."],
+  flower: ["...KKK...", "..KKKKK..", "..KKYKK..", "..KKKKK..", "...KKK...", "....G....", ".GG.G.GG.", "..GGGGG.."],
 };
 const TUBE_ORDER = ["heart", "smiley", "robot", "star", "fish", "flower"];
 function tubeGeometry(x, y, w, h) {
-  const C = 11, R = 10, d = Math.min(w * 0.95 / (C + 1.273), h * 0.94 / ((R - 1) * 1.273 + 1.25)), s = d * 4 / Math.PI;   // bend arc = exactly 2 marbles
+  const C = 9, R = 8, d = Math.min(w * 0.95 / (C + 1.273), h * 0.94 / ((R - 1) * 1.273 + 1.25)), s = d * 4 / Math.PI;   // bend arc = exactly 2 marbles
   const xl = x + (w - (C - 1) * d) / 2, xr = xl + (C - 1) * d, y0 = y + (h - ((R - 1) * s)) / 2;
   const startX = x - d, lead = xl - startX, rowLen = (C + 1) * d;
   const N = R * C + (R - 1), total = lead + (R - 1) * rowLen + (C - 1) * d;
@@ -1641,10 +1641,13 @@ function drawMarbleTube(ctx, id, x, y, w, h, e, duration, t) {
   G.path(ctx); ctx.lineWidth = d * 1.22; ctx.strokeStyle = "#7FA6C4"; ctx.stroke();
   G.path(ctx); ctx.lineWidth = d * 1.06; ctx.strokeStyle = "#0E1A21"; ctx.stroke();
   // marbles: marble i ends in slot N-1-i, so the tube fills from the bottom end backward
-  const finish = duration * 0.985, speed = G.total / 2.4;
+  // A steady stream at a gentle rolling speed: the first marble takes a while to wind down to the bottom,
+  // then the rest keep arriving one after another until the tube is full.
+  const finish = duration * 0.985, firstTrip = Math.min(duration * 0.2, 14), speed = G.slotDist(G.N - 1) / firstTrip;
+  const gapTime = (finish - firstTrip) / (G.N - 1);
   let landed = 0;
   for (let i = 0; i < G.N; i++) {
-    const k = G.N - 1 - i, target = G.slotDist(k), land = (i + 1) / G.N * finish, enter = land - target / speed;
+    const k = G.N - 1 - i, target = G.slotDist(k), land = firstTrip + i * gapTime, enter = land - target / speed;
     if (e < enter) break;
     const dist = Math.min((e - enter) * speed, target);
     if (e >= land) landed++;
