@@ -114,7 +114,7 @@ button:focus-visible { outline: 3px solid var(--white); outline-offset: 3px; }
   text-shadow: 0 3px 0 var(--primary-lip); flex: none; animation: slam .6s cubic-bezier(.3,1.5,.5,1) .15s both; text-wrap: balance; }
 @keyframes slam { from { transform: scale(3); opacity: 0 } to { transform: none; opacity: 1 } }
 #stage { position: relative; flex: 1; min-height: 0; touch-action: none; }
-#stageCanvas { position: absolute; inset: 0; width: 100%; height: 100%; }
+#stageCanvas, #showCanvas { position: absolute; inset: 0; width: 100%; height: 100%; }
 #badge { position: absolute; left: 50%; top: 50%; width: 200px; height: 200px; margin: -100px 0 0 -100px; }
 #badge.show { animation: spinIn .9s cubic-bezier(.3,1.4,.5,1) both; }
 @keyframes spinIn { from { transform: scale(.01) rotate(-360deg) } to { transform: none } }
@@ -195,6 +195,7 @@ button:focus-visible { outline: 3px solid var(--white); outline-offset: 3px; }
     <h1 id="finaleTitle">Board full!</h1>
     <div id="stage">
       <canvas id="stageCanvas"></canvas>
+      <canvas id="showCanvas" hidden></canvas>
       <div id="badge" hidden></div>
     </div>
     <div id="finaleFooter"></div>
@@ -219,4 +220,5 @@ button:focus-visible { outline: 3px solid var(--white); outline-offset: 3px; }
   <div class="count" id="bookText"></div>
   <div class="list" id="bookList"></div>
 </div>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 <script src="app.js"></script>

@@ -35,7 +35,7 @@ the side of the mouth being brushed, scrubs with a toothbrush and wears a costum
   a mouth map lights up the right teeth, and a little 🪥 scrubs there. There are cheers in between too.
 - **Timer**: 30 seconds, 1 minute or 90 seconds (the narrator talks a little faster on the short ones). The hero flies around a glowing ring
   toward its goal (🚀 → 🪐, 🦖 → 🌋, 🤖 → 🔋 …). Big 5-4-3-2-1 countdown at the end.
-- **The payoff** (web: a slot machine — pull the lever, three reels spin; all three on the legendary icon wins the grand prize, about 1 in 5 pulls; otherwise a regular sticker): white flash + screen shake + explosion + confetti and emoji fireworks, the goal
+- **The payoff** (web: a prize wheel with lights; flick it or tap Spin. It lands on a sticker, the grand-prize legendary sticker, or a short 3D "show" made with three.js: rocket launch, disco party, fireworks or robot dance): white flash + screen shake + explosion + confetti and emoji fireworks, the goal
   blows up, the narrator celebrates, then a **mystery gift** drops in. Tap it → it rattles → POP →
   a spinning sunburst reveals a **collectible sticker** (common, rare or ✨LEGENDARY✨).
 - **Sticker Book** with 30 stickers to collect (uncollected ones are mystery silhouettes) and a

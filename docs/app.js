@@ -103,14 +103,18 @@ const rewards = {
     for (const s of pool) { roll -= RARITY[s.rarity].weight; if (roll < 0) { pick = s; break; } }
     this.lastWasNew = !this.counts[pick.id];
     this.counts[pick.id] = (this.counts[pick.id] || 0) + 1;
+    store.set("counts", this.counts);
+    return pick;
+  },
+  /** call once when a brush is finished: keeps the daily streak going */
+  brushed() {
     const today = this.dayNum(Date.now());
     if (this.last == null) this.streak = 1;
     else if (today - this.last === 1) this.streak += 1;
     else if (today - this.last > 1) this.streak = 1;
     else if (this.streak === 0) this.streak = 1;
     this.last = today;
-    store.set("counts", this.counts); store.set("streak", this.streak); store.set("lastDay", this.last);
-    return pick;
+    store.set("streak", this.streak); store.set("lastDay", this.last);
   },
 };
 rewards.init();
@@ -1765,79 +1769,200 @@ function drawGift(ctx, g, color, lip, lid) {
   ctx.restore(); ctx.globalAlpha = 1;
 }
 
-/** chunky slot machine: marquee with blinking bulbs, three reels, and a lever on the right */
-function drawSlotMachine(ctx, w, h, f, th, t) {
-  const drop = Math.min((t - f.slotT) / 0.5, 1), ease = 1 - Math.pow(1 - drop, 3);
-  const B = Math.min(w * 0.74, 290, h * 0.9), bodyH = B * 0.82, markH = B * 0.24;
-  const totalH = markH + bodyH, x = (w - B) / 2 - B * 0.06, y = (h - totalH) / 2 + (1 - ease) * -h * 0.6;
-  const win = f.jackpot && f.resolved, spinning = f.pullT && !f.resolved;
-  // marquee
-  fillRR(ctx, x + B * 0.06, y + 5, B * 0.88, markH, 16, P.yellowLip);
-  fillRR(ctx, x + B * 0.06, y, B * 0.88, markH, 16, P.yellow);
-  ctx.font = `900 ${markH * 0.42}px Nunito, ui-rounded, system-ui, sans-serif`; ctx.textAlign = "center"; ctx.textBaseline = "middle";
-  ctx.fillStyle = win && Math.floor(t * 6) % 2 ? P.red : "#5A3D00"; ctx.fillText(win ? "JACKPOT!" : "PRIZE SPIN", x + B / 2, y + markH * 0.52);
-  // bulbs around the marquee: chase while spinning, flash on a jackpot
-  const bulbs = 12;
+// ---- prize wheel
+const WHEEL_SEGMENTS = ["sticker", "show", "sticker", "grand", "sticker", "show", "sticker", "show"];
+const WHEEL_COLORS = [P.red, P.blue, P.yellow, "#FFD54A", P.green, P.purple, P.orange, P.pink];
+const SEG = Math.PI * 2 / WHEEL_SEGMENTS.length;
+/** which segment is under the pointer (the pointer is at the top) */
+function wheelIndex(rot) { const a = ((-rot) % (Math.PI * 2) + Math.PI * 2) % (Math.PI * 2); return Math.floor(a / SEG) % WHEEL_SEGMENTS.length; }
+function drawPrizeWheel(ctx, w, h, f, th, t) {
+  const W = f.wheel, drop = Math.min((t - f.wheelT) / 0.5, 1), ease = 1 - Math.pow(1 - drop, 3);
+  const R = Math.min(w * 0.43, h * 0.42, 170), cx = w / 2, cy = h * 0.47 + (1 - ease) * -h * 0.7;
+  W.geo = { cx, cy, R };
+  const spinning = W.spinT != null && !W.done, won = W.done;
+  // stand
+  ctx.beginPath(); ctx.moveTo(cx - R * 0.5, cy + R * 1.28); ctx.lineTo(cx - R * 0.14, cy); ctx.lineTo(cx + R * 0.14, cy); ctx.lineTo(cx + R * 0.5, cy + R * 1.28); ctx.closePath(); ctx.fillStyle = "#2C4F73"; ctx.fill();
+  fillRR(ctx, cx - R * 0.62, cy + R * 1.2, R * 1.24, R * 0.14, R * 0.07, "#1B3550");
+  // outer rim with light bulbs
+  circ(ctx, cx, cy + 6, R * 1.13, th.lip); circ(ctx, cx, cy, R * 1.13, th.primary);
+  circ(ctx, cx, cy, R * 1.0, "#20303A");
+  const bulbs = 20;
   for (let i = 0; i < bulbs; i++) {
-    const bx = x + B * 0.06 + (i + 0.5) * B * 0.88 / bulbs;
-    const on = win ? Math.floor(t * 8) % 2 === 0 : spinning ? (Math.floor(t * 14) + i) % 3 === 0 : (Math.floor(t * 2) + i) % 2 === 0;
-    circ(ctx, bx, y + 6, B * 0.018, on ? "#fff" : "#E0A905"); circ(ctx, bx, y + markH - 6, B * 0.018, on ? "#fff" : "#E0A905");
+    const a = i / bulbs * Math.PI * 2 - Math.PI / 2;
+    const on = won ? Math.floor(t * 8) % 2 === 0 : spinning ? (Math.floor(t * 16) + i) % 4 === 0 : (Math.floor(t * 2.5) + i) % 2 === 0;
+    const bx = cx + Math.cos(a) * R * 1.065, by = cy + Math.sin(a) * R * 1.065;
+    if (on) { ctx.globalAlpha = 0.35; circ(ctx, bx, by, R * 0.07, "#FFF7C2"); ctx.globalAlpha = 1; }
+    circ(ctx, bx, by, R * 0.04, on ? "#FFFBE0" : "#B38A1D");
   }
-  // body
-  const by = y + markH + 6;
-  fillRR(ctx, x, by + 6, B, bodyH, 24, th.lip);
-  fillRR(ctx, x, by, B, bodyH, 24, th.primary);
-  ctx.globalAlpha = 0.25; fillRR(ctx, x + 12, by + 10, B * 0.12, bodyH - 20, 8, "#fff"); ctx.globalAlpha = 1;
-  // reel window
-  const pad = B * 0.07, rw = (B - pad * 2 - B * 0.04) / 3, rh = rw * 1.25, ry = by + bodyH * 0.12;
-  fillRR(ctx, x + pad - 6, ry - 6, B - pad * 2 + 12, rh + 12, 16, "#20303A");
-  for (let i = 0; i < 3; i++) {
-    const rx = x + pad + i * (rw + B * 0.02), r = f.reels[i];
-    ctx.save(); rrect(ctx, rx, ry, rw, rh, 12); ctx.fillStyle = "#FFFDF6"; ctx.fill(); ctx.clip();
-    const n = f.icons.length, base = Math.floor(r.pos), frac = r.pos - base, cell = rh * 0.8;
-    ctx.font = `${cell * 0.62}px system-ui, "Apple Color Emoji", "Segoe UI Emoji", sans-serif`; ctx.textAlign = "center"; ctx.textBaseline = "middle";
-    for (let k = -2; k <= 2; k++) {
-      const idx = ((base + k) % n + n) % n, cy = ry + rh / 2 + (k - frac) * cell;
-      const blur = !r.done && f.pullT ? 0.55 : 1;
-      ctx.globalAlpha = blur * (k === 0 && frac < 0.01 ? 1 : 0.9);
-      ctx.fillText(f.icons[idx], rx + rw / 2, cy);
+  // the spinning disc
+  ctx.save(); ctx.translate(cx, cy); ctx.rotate(W.rot - Math.PI / 2);
+  const n = WHEEL_SEGMENTS.length, hit = wheelIndex(W.rot);
+  for (let i = 0; i < n; i++) {
+    const kind = WHEEL_SEGMENTS[i], a0 = i * SEG, a1 = a0 + SEG;
+    ctx.beginPath(); ctx.moveTo(0, 0); ctx.arc(0, 0, R * 0.96, a0, a1); ctx.closePath();
+    ctx.fillStyle = WHEEL_COLORS[i]; ctx.fill();
+    if (kind === "grand") {   // shimmering gold stripes
+      ctx.save(); ctx.clip(); ctx.globalAlpha = 0.35; ctx.fillStyle = "#fff";
+      for (let k = 0; k < 4; k++) { ctx.beginPath(); ctx.arc(0, 0, R * (0.3 + k * 0.2 + ((t * 0.25) % 0.2)), a0, a1); ctx.arc(0, 0, R * (0.24 + k * 0.2 + ((t * 0.25) % 0.2)), a1, a0, true); ctx.closePath(); ctx.fill(); }
+      ctx.restore(); ctx.globalAlpha = 1;
     }
-    ctx.globalAlpha = 1;
-    // soft shading at the top and bottom of each reel
-    const g = ctx.createLinearGradient(0, ry, 0, ry + rh);
-    g.addColorStop(0, "rgba(0,0,0,0.25)"); g.addColorStop(0.25, "rgba(0,0,0,0)"); g.addColorStop(0.75, "rgba(0,0,0,0)"); g.addColorStop(1, "rgba(0,0,0,0.25)");
-    ctx.fillStyle = g; ctx.fillRect(rx, ry, rw, rh);
+    if (won && i === hit && Math.floor(t * 6) % 2 === 0) { ctx.globalAlpha = 0.35; ctx.fillStyle = "#fff"; ctx.fill(); ctx.globalAlpha = 1; }
+    ctx.lineWidth = 3; ctx.strokeStyle = "rgba(0,0,0,0.25)"; ctx.stroke();
+    // icon + label, reading outward from the hub
+    ctx.save(); ctx.rotate(a0 + SEG / 2);
+    ctx.textAlign = "center"; ctx.textBaseline = "middle";
+    ctx.font = `${R * 0.2}px system-ui, "Apple Color Emoji", "Segoe UI Emoji", sans-serif`;
+    ctx.save(); ctx.translate(R * 0.7, 0); ctx.rotate(Math.PI / 2); ctx.fillText(kind === "grand" ? "👑" : kind === "show" ? "🎬" : f.icons[i % f.icons.length], 0, 0); ctx.restore();
+    ctx.font = `900 ${R * 0.085}px Nunito, ui-rounded, system-ui, sans-serif`; ctx.fillStyle = kind === "grand" ? "#5A3D00" : "rgba(255,255,255,0.95)";
+    ctx.save(); ctx.translate(R * 0.42, 0); ctx.rotate(Math.PI / 2); ctx.fillText(kind === "grand" ? "GRAND" : kind === "show" ? "SHOW" : "STICKER", 0, 0); ctx.restore();
     ctx.restore();
-    if (win) { rrect(ctx, rx, ry, rw, rh, 12); ctx.lineWidth = 4; ctx.strokeStyle = Math.floor(t * 8) % 2 ? P.yellow : "#fff"; ctx.stroke(); }
   }
-  // pay line
-  ctx.globalAlpha = 0.8; fillRR(ctx, x + pad - 10, ry + rh / 2 - 2, B - pad * 2 + 20, 4, 2, P.red); ctx.globalAlpha = 1;
-  // coin tray
-  fillRR(ctx, x + B * 0.25, by + bodyH * 0.78, B * 0.5, bodyH * 0.12, 10, th.lip);
-  fillRR(ctx, x + B * 0.28, by + bodyH * 0.8, B * 0.44, bodyH * 0.06, 6, "#20303A");
-  // lever: pivots on the right side; swings down when pulled
-  const px = x + B + 4, py = by + bodyH * 0.45, len = B * 0.48;
-  let pull;
-  if (f.dragging) pull = f.drag;
-  else if (f.releaseT != null) {      // spring back up with a little bounce
-    const u = Math.min((t - f.releaseT) / 0.45, 1);
-    pull = f.releaseFrom * (1 - u) * (1 - u) - Math.sin(u * Math.PI) * 0.06 * f.releaseFrom;
-  } else if (f.pullT) { const u = t - f.pullT; pull = u < 0.25 ? u / 0.25 : u < 0.7 ? 1 - (u - 0.25) / 0.45 : 0; }
-  else pull = (Math.sin(t * 5) * 0.04) - 0.02;   // wiggles: "pull me!"
-  // the arm swings down toward you: the knob slides from above the pivot to below it, getting a bit bigger mid-swing
-  const sw = Math.max(-0.08, Math.min(pull, 1)) * Math.PI * 0.85;
-  const kx = px + 4 + Math.sin(sw) * B * 0.09, ky = py - len * Math.cos(sw), kr = B * 0.075 * (1 + 0.35 * Math.sin(Math.max(sw, 0)));
-  fillRR(ctx, px - 4, py - 14, 16, 28, 6, "#9AA7B0");
-  ctx.lineCap = "round"; ctx.lineWidth = 8 + 3 * Math.sin(Math.max(sw, 0)); ctx.strokeStyle = "#C9D3D9";
-  ctx.beginPath(); ctx.moveTo(px + 4, py); ctx.lineTo(kx, ky); ctx.stroke(); ctx.lineCap = "butt";
-  circ(ctx, kx, ky + 2, kr, P.redLip); circ(ctx, kx, ky, kr, P.red); circ(ctx, kx - kr * 0.33, ky - kr * 0.33, kr * 0.3, "#fff");
-  f.lever = { px, py, len, B };
-  // "pull down" hint arrow next to the knob until it's been pulled
-  if (!f.pullT && !f.dragging) {
-    const hy = py - len * 0.6 + ((t * 1.6) % 1) * len * 0.5, hx = px + B * 0.17;
-    ctx.globalAlpha = 0.9 * (1 - ((t * 1.6) % 1)); tri(ctx, hx, hy, 14, 12, "#fff", 180); ctx.globalAlpha = 1;
+  for (let i = 0; i < n; i++) { const a = i * SEG; circ(ctx, Math.cos(a) * R * 0.9, Math.sin(a) * R * 0.9, R * 0.03, "#fff"); }   // pegs
+  ctx.restore();
+  // hub
+  circ(ctx, cx, cy + 3, R * 0.17, th.lip); circ(ctx, cx, cy, R * 0.17, "#fff"); sparkle(ctx, cx, cy, R * 0.22, P.yellow, t * 40);
+  // pointer at the top: it flicks as each peg goes by
+  const frac = (((-W.rot) % SEG) + SEG) % SEG / SEG, flick = spinning ? Math.max(0, 1 - frac * 5) * -28 * (W.dir || 1) : 0;
+  ctx.save(); ctx.translate(cx, cy - R * 1.1); ctx.rotate(rad(flick));
+  ctx.beginPath(); ctx.moveTo(-R * 0.1, -R * 0.08); ctx.lineTo(R * 0.1, -R * 0.08); ctx.lineTo(0, R * 0.2); ctx.closePath(); ctx.fillStyle = P.redLip; ctx.fill();
+  ctx.beginPath(); ctx.moveTo(-R * 0.08, -R * 0.1); ctx.lineTo(R * 0.08, -R * 0.1); ctx.lineTo(0, R * 0.16); ctx.closePath(); ctx.fillStyle = P.red; ctx.fill();
+  circ(ctx, 0, -R * 0.07, R * 0.045, "#fff");
+  ctx.restore();
+  // hint: curved arrows until it has been spun
+  if (W.spinT == null && !W.dragging) {
+    ctx.globalAlpha = 0.6 + 0.4 * Math.sin(t * 5); ctx.lineWidth = 5; ctx.lineCap = "round"; ctx.strokeStyle = "#fff";
+    const a0 = -0.5 + Math.sin(t * 2) * 0.15;
+    ctx.beginPath(); ctx.arc(cx, cy, R * 1.28, a0, a0 + 0.7); ctx.stroke();
+    const ex = cx + Math.cos(a0 + 0.7) * R * 1.28, ey = cy + Math.sin(a0 + 0.7) * R * 1.28;
+    tri(ctx, ex, ey, 16, 14, "#fff", (a0 + 0.7) * 180 / Math.PI + 180);
+    ctx.lineCap = "butt"; ctx.globalAlpha = 1;
   }
 }
+
+// ---- 3D prize shows (three.js)
+const SHOWS = [
+  { id: "rocket", title: "Rocket launch!" }, { id: "disco", title: "Disco party!" },
+  { id: "fireworks", title: "Fireworks show!" }, { id: "robot", title: "Robot dance!" },
+];
+const Show3D = {
+  renderer: null, scene: null, camera: null, update: null, t0: 0,
+  available() { return typeof THREE !== "undefined"; },
+  start(kind, canvas, t) {
+    this.stop();
+    const T = THREE;
+    try { this.renderer = new T.WebGLRenderer({ canvas, alpha: true, antialias: true }); } catch (e) { this.renderer = null; return false; }
+    this.renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+    this.scene = new T.Scene();
+    this.camera = new T.PerspectiveCamera(50, 1, 0.1, 100); this.camera.position.set(0, 0, 9);
+    this.scene.add(new T.AmbientLight(0xffffff, 0.75));
+    const sun = new T.DirectionalLight(0xffffff, 0.8); sun.position.set(3, 5, 6); this.scene.add(sun);
+    this.t0 = t; this.update = SHOW_BUILDERS[kind](T, this.scene, this.camera);
+    return true;
+  },
+  render(t) {
+    if (!this.renderer) return;
+    const c = this.renderer.domElement, w = c.clientWidth, h = c.clientHeight;
+    if (w && h) { this.renderer.setSize(w, h, false); this.camera.aspect = w / h; this.camera.updateProjectionMatrix(); }
+    this.update(t - this.t0);
+    this.renderer.render(this.scene, this.camera);
+  },
+  stop() {
+    if (!this.renderer) return;
+    this.scene.traverse(o => { if (o.geometry) o.geometry.dispose(); if (o.material) [].concat(o.material).forEach(m => m.dispose()); });
+    this.renderer.dispose(); this.renderer = null; this.scene = null; this.update = null;
+  },
+};
+const SHOW_BUILDERS = {
+  // a rocket rumbles on the pad, then blasts off with smoke and stars
+  rocket(T, scene, camera) {
+    const mat = c => new T.MeshLambertMaterial({ color: c });
+    const rocket = new T.Group();
+    const body = new T.Mesh(new T.CylinderGeometry(0.6, 0.6, 2.2, 28), mat(0xffffff)); rocket.add(body);
+    const nose = new T.Mesh(new T.ConeGeometry(0.6, 1.1, 28), mat(0xff5050)); nose.position.y = 1.65; rocket.add(nose);
+    const band = new T.Mesh(new T.CylinderGeometry(0.62, 0.62, 0.3, 28), mat(0xff5050)); band.position.y = -0.7; rocket.add(band);
+    const win = new T.Mesh(new T.SphereGeometry(0.28, 20, 16), mat(0x1fb2f5)); win.position.set(0, 0.45, 0.5); rocket.add(win);
+    for (let i = 0; i < 3; i++) { const fin = new T.Mesh(new T.BoxGeometry(0.12, 0.9, 0.7), mat(0xd63636)); const a = i / 3 * Math.PI * 2; fin.position.set(Math.sin(a) * 0.75, -0.9, Math.cos(a) * 0.75); fin.rotation.y = a; rocket.add(fin); }
+    const flame = new T.Mesh(new T.ConeGeometry(0.42, 1.6, 20), new T.MeshBasicMaterial({ color: 0xff9a0a })); flame.rotation.x = Math.PI; flame.position.y = -1.9; rocket.add(flame);
+    const flame2 = new T.Mesh(new T.ConeGeometry(0.22, 1.0, 20), new T.MeshBasicMaterial({ color: 0xffcb05 })); flame2.rotation.x = Math.PI; flame2.position.y = -1.6; rocket.add(flame2);
+    scene.add(rocket);
+    const pad = new T.Mesh(new T.CylinderGeometry(1.6, 1.9, 0.3, 28), mat(0x37464f)); pad.position.y = -3.6; scene.add(pad);
+    const puffs = []; for (let i = 0; i < 26; i++) { const m = new T.Mesh(new T.SphereGeometry(0.4, 12, 10), new T.MeshLambertMaterial({ color: 0xffffff, transparent: true })); scene.add(m); puffs.push(m); }
+    const sg = new T.BufferGeometry(), sp = []; for (let i = 0; i < 160; i++) sp.push((hash(i) - 0.5) * 16, (hash(i * 3.3) - 0.5) * 30, -4 - hash(i * 7.1) * 6);
+    sg.setAttribute("position", new T.Float32BufferAttribute(sp, 3)); const stars = new T.Points(sg, new T.PointsMaterial({ color: 0xffffff, size: 0.09 })); scene.add(stars);
+    return tt => {
+      const u = tt % 7.5, lift = Math.max(0, u - 1.8), y = -2.3 + lift * lift * 0.5;
+      rocket.position.set(u < 1.8 ? Math.sin(u * 60) * 0.05 : 0, y, 0); rocket.rotation.y = tt * 1.5; rocket.rotation.z = Math.sin(tt * 2) * 0.04;
+      const f = u < 0.6 ? 0.01 : 0.8 + Math.sin(tt * 40) * 0.2; flame.scale.set(f, f * (lift > 0 ? 1.4 : 0.6), f); flame2.scale.copy(flame.scale);
+      puffs.forEach((m, i) => { const a = (u * 1.2 + i * 0.13) % 1.6, ang = i * 2.4, r = a * (1.6 + (i % 4) * 0.5);
+        m.visible = u > 0.5; m.position.set(Math.cos(ang) * r, -3.3 + a * 0.5, Math.sin(ang) * r * 0.5); m.scale.setScalar(0.4 + a * 1.1); m.material.opacity = Math.max(0, 0.85 - a * 0.6); });
+      stars.position.y = -lift * lift * 0.9; camera.position.y = Math.min(Math.max(y * 0.3, -0.6), 2.5); camera.lookAt(0, Math.min(Math.max(y * 0.6, -1.2), 3.5), 0);
+    };
+  },
+  // a mirror ball spins under colored lights while shapes dance in a ring
+  disco(T, scene, camera) {
+    const ball = new T.Mesh(new T.IcosahedronGeometry(1.25, 1), new T.MeshPhongMaterial({ color: 0xe6eef5, flatShading: true, shininess: 120, specular: 0xffffff }));
+    ball.position.y = 1.3; scene.add(ball);
+    scene.children.forEach(l => { if (l.isAmbientLight) l.intensity = 0.3; if (l.isDirectionalLight) l.intensity = 0.25; });   // dim the room so the colored lights show
+    const rope = new T.Mesh(new T.CylinderGeometry(0.03, 0.03, 4, 6), new T.MeshBasicMaterial({ color: 0xb9c7d1 })); rope.position.y = 4.5; scene.add(rope);
+    const lights = [0xff5050, 0x1fb2f5, 0xffcb05, 0xb876ff].map(c => { const l = new T.PointLight(c, 1.6, 14); scene.add(l); return l; });
+    const cols = [0xff5050, 0xffcb05, 0x5bcb0c, 0x1fb2f5, 0xb876ff, 0xff8ad2, 0xff9a0a, 0x2ec4b6];
+    const dancers = cols.map((c, i) => { const g = i % 2 ? new T.BoxGeometry(0.7, 0.7, 0.7) : new T.SphereGeometry(0.42, 18, 14); const m = new T.Mesh(g, new T.MeshLambertMaterial({ color: c })); scene.add(m); return m; });
+    const floor = new T.Mesh(new T.CircleGeometry(4.2, 40), new T.MeshLambertMaterial({ color: 0x2a1e4a })); floor.rotation.x = -Math.PI / 2; floor.position.y = -2.6; scene.add(floor);
+    camera.position.set(0, 1.2, 9.5); camera.lookAt(0, 0, 0);
+    return tt => {
+      ball.rotation.y = tt * 1.4; ball.position.y = 1.3 + Math.sin(tt * 2) * 0.12;
+      lights.forEach((l, i) => { const a = tt * (1.2 + i * 0.3) + i * 1.6; l.position.set(Math.cos(a) * 4, 2 + Math.sin(a * 1.3) * 1.5, Math.sin(a) * 4 + 2); });
+      dancers.forEach((m, i) => { const a = i / dancers.length * Math.PI * 2 + tt * 0.6, hop = Math.abs(Math.sin(tt * 5 + i * 0.8));
+        m.position.set(Math.cos(a) * 3, -2.1 + hop * 1.3, Math.sin(a) * 2); m.rotation.set(tt * 2 + i, tt * 3, 0); m.scale.set(1 + (1 - hop) * 0.25, 1 - (1 - hop) * 0.25, 1 + (1 - hop) * 0.25); });
+    };
+  },
+  // colorful bursts, one after another
+  fireworks(T, scene, camera) {
+    const cols = [0xff5050, 0xffcb05, 0x5bcb0c, 0x1fb2f5, 0xb876ff, 0xff8ad2, 0xffffff, 0xff9a0a], N = 140, bursts = [];
+    for (let b = 0; b < 8; b++) {
+      const dirs = []; for (let i = 0; i < N; i++) { const th = Math.acos(2 * hash(b * 100 + i) - 1), ph = hash(b * 57 + i * 3.1) * Math.PI * 2, sp = 2.2 + hash(i * 9.7 + b) * 1.6; dirs.push(Math.sin(th) * Math.cos(ph) * sp, Math.cos(th) * sp, Math.sin(th) * Math.sin(ph) * sp); }
+      const g = new T.BufferGeometry(); g.setAttribute("position", new T.Float32BufferAttribute(new Float32Array(N * 3), 3));
+      const pts = new T.Points(g, new T.PointsMaterial({ color: cols[b], size: 0.26, transparent: true, blending: T.AdditiveBlending, depthWrite: false }));
+      scene.add(pts); bursts.push({ pts, dirs, at: b * 0.75, ox: (hash(b * 4.4) - 0.5) * 7, oy: 0.5 + hash(b * 8.8) * 3.2 });
+    }
+    return tt => {
+      const u = tt % 6.8;
+      for (const B of bursts) {
+        const age = u - B.at, pos = B.pts.geometry.attributes.position;
+        B.pts.visible = age > 0 && age < 2.2; if (!B.pts.visible) continue;
+        const k = 1 - Math.exp(-age * 2.2);
+        for (let i = 0; i < N; i++) pos.setXYZ(i, B.ox + B.dirs[i * 3] * k, B.oy + B.dirs[i * 3 + 1] * k - age * age * 0.5, B.dirs[i * 3 + 2] * k);
+        pos.needsUpdate = true; B.pts.material.opacity = Math.max(0, 1 - age / 2.2); B.pts.material.size = 0.3 - age * 0.06;
+      }
+    };
+  },
+  // a boxy robot busts some moves
+  robot(T, scene, camera) {
+    const mat = c => new T.MeshLambertMaterial({ color: c }), box = (w, h, d, c) => new T.Mesh(new T.BoxGeometry(w, h, d), mat(c));
+    const bot = new T.Group(); scene.add(bot);
+    const body = box(1.6, 1.7, 1, 0x2ec4b6); bot.add(body);
+    const panel = box(0.9, 0.6, 0.1, 0xffcb05); panel.position.set(0, 0.1, 0.52); bot.add(panel);
+    const head = new T.Group(); head.position.y = 1.55; bot.add(head);
+    head.add(box(1.3, 1, 1, 0xb9c7d1));
+    for (const x of [-0.3, 0.3]) { const e = new T.Mesh(new T.SphereGeometry(0.17, 14, 12), new T.MeshBasicMaterial({ color: 0x1fb2f5 })); e.position.set(x, 0.1, 0.5); head.add(e); }
+    const mouth = box(0.6, 0.1, 0.05, 0xff5050); mouth.position.set(0, -0.25, 0.52); head.add(mouth);
+    const ant = box(0.08, 0.5, 0.08, 0x37464f); ant.position.y = 0.75; head.add(ant);
+    const bulb = new T.Mesh(new T.SphereGeometry(0.14, 12, 10), new T.MeshBasicMaterial({ color: 0xff5050 })); bulb.position.y = 1.05; head.add(bulb);
+    const arms = [-1, 1].map(sx => { const g = new T.Group(); g.position.set(sx * 1.0, 0.6, 0); const a = box(0.35, 1.3, 0.35, 0xffcb05); a.position.y = -0.55; g.add(a); const hand = new T.Mesh(new T.SphereGeometry(0.25, 12, 10), mat(0xff9a0a)); hand.position.y = -1.25; g.add(hand); bot.add(g); return g; });
+    const legs = [-1, 1].map(sx => { const g = new T.Group(); g.position.set(sx * 0.45, -0.85, 0); const l = box(0.45, 1.1, 0.5, 0x219e92); l.position.y = -0.55; g.add(l); const foot = box(0.6, 0.25, 0.8, 0x37464f); foot.position.set(0, -1.2, 0.12); g.add(foot); bot.add(g); return g; });
+    const floor = new T.Mesh(new T.CircleGeometry(3.4, 40), mat(0x1d4350)); floor.rotation.x = -Math.PI / 2; floor.position.y = -2.4; scene.add(floor);
+    const spot = [0xff8ad2, 0xffcb05].map((c, i) => { const l = new T.PointLight(c, 1.2, 12); scene.add(l); return l; });
+    camera.position.set(0, 0.6, 8.5); camera.lookAt(0, 0, 0);
+    return tt => {
+      const beat = tt * 6, u = tt % 6;
+      bot.position.y = Math.abs(Math.sin(beat)) * 0.35; bot.rotation.y = u > 4.2 && u < 5.4 ? (u - 4.2) / 1.2 * Math.PI * 2 : Math.sin(tt * 1.5) * 0.5;
+      head.rotation.z = Math.sin(beat) * 0.18; head.rotation.y = Math.sin(tt * 3) * 0.3; bulb.scale.setScalar(0.8 + Math.abs(Math.sin(tt * 8)) * 0.6);
+      arms[0].rotation.z = -1.9 + Math.sin(beat) * 0.9; arms[1].rotation.z = 1.9 + Math.sin(beat + Math.PI) * 0.9; arms[0].rotation.x = arms[1].rotation.x = Math.sin(beat * 0.5) * 0.4;
+      legs[0].rotation.x = Math.sin(beat) * 0.35; legs[1].rotation.x = -Math.sin(beat) * 0.35;
+      spot.forEach((l, i) => { const a = tt * 2 + i * Math.PI; l.position.set(Math.cos(a) * 4, 3, Math.sin(a) * 3 + 3); });
+    };
+  },
+};
 
 // ============================================================ brushing session
 class Session {
@@ -1999,11 +2124,12 @@ const UI = {
   finish() {
     const s = this.session, th = s.theme;
     this.releaseWake();
+    rewards.brushed();
     $("countdown").innerHTML = "";
     const f = this.finale = { phase: "boom", t0: performance.now() / 1000, sticker: null, isNew: false };
     $("finaleTitle").textContent = th.finale;
     $("finaleTitle").style.animation = "none"; void $("finaleTitle").offsetWidth; $("finaleTitle").style.animation = "";
-    $("badge").hidden = true; $("badge").className = "";
+    $("badge").hidden = true; $("badge").className = ""; $("showCanvas").hidden = true;
     $("finaleFooter").innerHTML = '<div style="height:63px"></div>';
     this.show("finale");
     const A = AudioEngine;
@@ -2016,74 +2142,98 @@ const UI = {
     at(1.4, () => { A.play("sparkle"); burst(innerWidth * 0.5, innerHeight * 0.2, [th.light, "#fff"], true, true); });
     at(3.4, () => {
       A.play("whoosh");
-      const icons = th.stickers.map(x => x.emoji);
-      f.phase = "slot"; f.slotT = performance.now() / 1000; f.icons = icons;
-      f.reels = [0, 1, 2].map(i => ({ pos: (i * 2) % icons.length, from: 0, dist: 0, t0: 0, t1: 0, done: true, lastTick: 0 }));
-      f.pullT = null;
-      $("finaleTitle").textContent = "Pull the lever!";
-      $("finaleFooter").innerHTML = '<button class="btn" id="pullBtn">Pull the lever</button>';
-      $("pullBtn").addEventListener("click", () => this.pullLever());
+      f.phase = "wheel"; f.wheelT = performance.now() / 1000;
+      f.icons = th.stickers.filter(x => x.rarity !== "legendary").map(x => x.emoji);
+      f.wheel = { rot: -SEG / 2, spinT: null, done: false, dir: 1 };
+      $("finaleTitle").textContent = "Spin the wheel!";
+      $("finaleFooter").innerHTML = '<button class="btn" id="spinBtn">Spin the wheel</button>';
+      $("spinBtn").addEventListener("click", () => this.spinWheel(1));
     });
-    at(16, () => this.pullLever());
+    at(18, () => this.spinWheel(1));
   },
   flash() { $("flash").classList.remove("on"); void $("flash").offsetWidth; $("flash").classList.add("on"); },
-  /** spin the three reels; about 1 in 5 pulls lines up the grand prize */
-  pullLever(fromDrag = false) {
-    const f = this.finale; if (!f || f.phase !== "slot" || f.pullT) return;
-    if (!fromDrag) f.releaseT = null;
-    const th = this.session.theme, A = AudioEngine, n = f.icons.length;
-    const jackpotIcon = th.stickers.findIndex(x => x.rarity === "legendary");
-    f.jackpot = Math.random() < 0.2;
-    let targets;
-    if (f.jackpot) targets = [jackpotIcon, jackpotIcon, jackpotIcon];
-    else {
-      do { targets = [0, 1, 2].map(() => Math.floor(Math.random() * n)); }
-      while (targets[0] === targets[1] && targets[1] === targets[2]);
-      if (Math.random() < 0.35) { targets[0] = targets[1] = jackpotIcon; if (targets[2] === jackpotIcon) targets[2] = (jackpotIcon + 1) % n; }  // so close!
-    }
-    const now = performance.now() / 1000;
-    f.pullT = now;
-    f.reels.forEach((r, i) => {
-      r.from = r.pos; r.t0 = now + (fromDrag ? 0.12 : 0.35); r.t1 = r.t0 + 1.3 + i * 0.6; r.done = false; r.target = targets[i];
-      r.dist = n * (4 + i * 2) + ((targets[i] - Math.round(r.pos)) % n + n) % n;
-    });
-    const pb = $("pullBtn"); if (pb) { pb.disabled = true; pb.textContent = "Spinning…"; }
+  /** spin the wheel; where it stops is picked here, then the wheel eases round to that spot */
+  spinWheel(dir = 1, strength = 1) {
+    const f = this.finale; if (!f || f.phase !== "wheel" || f.wheel.spinT != null) return;
+    const W = f.wheel, th = this.session.theme, A = AudioEngine;
+    const roll = Math.random();
+    let kind = roll < 0.12 ? "grand" : roll < 0.5 ? "show" : "sticker";
+    if (kind === "show" && !Show3D.available()) kind = "sticker";
+    const options = WHEEL_SEGMENTS.map((k, i) => k === kind ? i : -1).filter(i => i >= 0);
+    const seg = options[Math.floor(Math.random() * options.length)];
+    // final angle puts that segment under the pointer, a little off-center so it looks natural
+    const want = -((seg + 0.5 + (Math.random() - 0.5) * 0.6) * SEG);
+    const turns = Math.round(5 + strength * 2), twoPi = Math.PI * 2;
+    let delta = ((want - W.rot) % twoPi + twoPi) % twoPi;            // forward distance, 0..2π
+    if (dir < 0) delta = delta - twoPi;                               // same spot going the other way
+    W.from = W.rot; W.dist = delta + dir * turns * twoPi; W.dir = dir; W.kind = kind;
+    W.spinT = performance.now() / 1000; W.dur = 4.6 + strength * 0.8; W.lastSeg = Math.floor(-W.rot / SEG);
+    const sb = $("spinBtn"); if (sb) { sb.disabled = true; sb.textContent = "Spinning…"; }
     $("finaleTitle").textContent = "Spinning…";
-    A.play("rattle"); buzz(fromDrag ? 30 : 20);
-    // award now so it's saved even if they leave mid-spin
-    f.sticker = rewards.award(th, f.jackpot); f.isNew = rewards.lastWasNew;
+    A.play("whoosh"); buzz(25);
+    // save the prize right away so it isn't lost if they leave mid-spin
+    if (kind !== "show") { f.sticker = rewards.award(th, kind === "grand"); f.isNew = rewards.lastWasNew; f.jackpot = kind === "grand"; }
   },
-  updateSlot(t) {
-    const f = this.finale; if (!f || f.phase !== "slot" || !f.pullT) return;
-    const A = AudioEngine, n = f.icons.length;
-    let all = true;
-    f.reels.forEach(r => {
-      if (r.done) return;
-      const u = Math.min(Math.max((t - r.t0) / (r.t1 - r.t0), 0), 1), e = 1 - Math.pow(1 - u, 3);
-      r.pos = r.from + r.dist * e;
-      const cell = Math.floor(r.pos);
-      if (cell !== r.lastTick) { r.lastTick = cell; if (u > 0 && u < 1) A.playQuiet("clack", 0.12); }
-      if (u >= 1) { r.done = true; r.pos = r.target; A.play("tap"); buzz(15); } else all = false;
-    });
-    if (all && !f.resolved) {
-      f.resolved = true;
+  updateWheel(t) {
+    const f = this.finale; if (!f || f.phase !== "wheel") return;
+    const W = f.wheel, A = AudioEngine;
+    if (W.spinT == null || W.done) return;
+    const u = Math.min((t - W.spinT) / W.dur, 1), e = 1 - Math.pow(1 - u, 4);
+    W.rot = W.from + W.dist * e;
+    const segNow = Math.floor(-W.rot / SEG);
+    if (segNow !== W.lastSeg) { W.lastSeg = segNow; A.play("clack", 0.3); buzz(6); }     // the pointer clicks over a peg
+    if (u >= 1) {
+      W.done = true; W.doneT = t;
       const th = this.session.theme;
-      if (f.jackpot) {
-        f.winT = t; $("finaleTitle").textContent = "JACKPOT!";
+      if (W.kind === "grand") {
+        $("finaleTitle").textContent = "GRAND PRIZE!";
         A.play("fanfare"); A.play("sparkle"); buzz([40, 40, 40, 40, 80]); this.flash();
         burst(innerWidth / 2, innerHeight * 0.4, [P.yellow, "#fff", th.primary, P.pink], true);
         setTimeout(() => burst(innerWidth * 0.2, innerHeight * 0.3, [P.yellow, "#fff"], true, true), 400);
         setTimeout(() => burst(innerWidth * 0.8, innerHeight * 0.3, [P.yellow, "#fff"], true, true), 800);
         setTimeout(() => this.reveal(), 2000);
+      } else if (W.kind === "show") {
+        $("finaleTitle").textContent = "You won a show!";
+        A.play("pop"); A.play("sparkle", 0.6); buzz([20, 30, 20]);
+        setTimeout(() => this.startShow(), 1200);
       } else {
-        $("finaleTitle").textContent = "You won a prize!";
-        A.play("pop"); A.play("sparkle", 0.6);
-        setTimeout(() => this.reveal(), 1100);
+        $("finaleTitle").textContent = "You won a sticker!";
+        A.play("pop"); A.play("sparkle", 0.6); buzz([20, 30, 20]);
+        setTimeout(() => this.reveal(), 1200);
       }
     }
   },
+  /** play one of the 3D shows as the prize */
+  startShow() {
+    const f = this.finale; if (!f || f.phase !== "wheel") return;
+    const A = AudioEngine, th = this.session.theme;
+    const last = store.get("lastShow", -1), idx = (last + 1 + Math.floor(Math.random() * (SHOWS.length - 1))) % SHOWS.length;
+    const show = SHOWS[idx]; store.set("lastShow", idx);
+    const canvas = $("showCanvas"); canvas.hidden = false;
+    if (!Show3D.start(show.id, canvas, performance.now() / 1000)) {      // no 3D on this device: give a sticker instead
+      canvas.hidden = true; f.sticker = rewards.award(th, false); f.isNew = rewards.lastWasNew; f.jackpot = false; this.reveal(); return;
+    }
+    f.phase = "show"; f.show = show;
+    this.flash(); A.play("fanfare", 0.7); A.play(show.id === "rocket" ? "whoosh" : "sparkle");
+    if (show.id === "fireworks") for (let i = 0; i < 8; i++) setTimeout(() => { if (this.finale === f && f.phase === "show") A.play("pop", 0.5); }, i * 750);
+    $("finaleTitle").textContent = show.title;
+    burst(innerWidth / 2, innerHeight * 0.3, [th.primary, P.yellow, "#fff"], true, true);
+    $("finaleFooter").innerHTML = `
+      <div class="card"><canvas id="footMascot"></canvas><div>
+        <div class="rarity" style="color:${P.yellow}">Prize show</div>
+        <div class="sname">${show.title}</div>
+        ${rewards.streak > 0 ? `<div class="streakline">🔥 ${rewards.streak} day streak</div>` : ""}
+      </div></div>
+      <button class="btn" id="contBtn">Continue</button>`;
+    $("contBtn").addEventListener("click", () => this.leaveFinale());
+  },
+  leaveFinale() {
+    const A = AudioEngine;
+    A.play("tap"); A.stopVoice(); A.stopMusic(); Show3D.stop(); $("showCanvas").hidden = true;
+    this.finale = null; this.session = null; this.show("home"); this.buildHome();
+  },
   reveal() {
-    const f = this.finale; if (!f || f.phase !== "slot") return;
+    const f = this.finale; if (!f || f.phase !== "wheel") return;
     const th = this.session.theme, A = AudioEngine, st = f.sticker, R = RARITY[st.rarity];
     A.play("sparkle"); if (!f.jackpot) A.play("fanfare", 0.6); buzz([30, 30, 50]);
     this.flash();
@@ -2102,7 +2252,7 @@ const UI = {
       </div></div>
       <button class="btn" id="contBtn">Continue</button>
       <button class="btn outline" id="bookBtn2">Sticker book</button>`;
-    $("contBtn").addEventListener("click", () => { A.play("tap"); A.stopVoice(); A.stopMusic(); this.finale = null; this.session = null; this.show("home"); this.buildHome(); });
+    $("contBtn").addEventListener("click", () => this.leaveFinale());
     $("bookBtn2").addEventListener("click", () => { A.play("tap"); this.openBook(st.id); });
   },
   drawStage(ctx, w, h, t) {
@@ -2110,9 +2260,11 @@ const UI = {
     if (f.phase === "boom") {
       const k = Math.min((t - f.t0) / 0.5, 1), s = Math.min(220, w * 0.6) * (0.2 + 0.8 * (1 - Math.pow(1 - k, 3)));
       ctx.globalAlpha = k; drawMascot(ctx, w / 2 - s / 2, h / 2 - s * 0.6, s, { costume: th.costume, mood: "cheer", talking: AudioEngine.speaking }, t); ctx.globalAlpha = 1;
-    } else if (f.phase === "slot") {
-      this.updateSlot(t);
-      drawSlotMachine(ctx, w, h, f, th, t);
+    } else if (f.phase === "wheel") {
+      this.updateWheel(t);
+      drawPrizeWheel(ctx, w, h, f, th, t);
+    } else if (f.phase === "show") {
+      Show3D.render(t);
     } else if (f.phase === "reveal") {
       const R = RARITY[f.sticker.rarity], a = t * 0.35, r = Math.max(w, h);
       ctx.save(); ctx.translate(w / 2, h / 2); ctx.globalAlpha = 0.22; ctx.fillStyle = R.color;
@@ -2140,36 +2292,35 @@ const UI = {
 
 // ============================================================ wiring
 $("startBtn").addEventListener("click", () => UI.start());
-// the slot machine lever: grab it and drag it down; let go to spin
+// the prize wheel: grab it and flick it round, or just tap it
 (() => {
   const stage = $("stage");
-  const local = e => { const r = stage.getBoundingClientRect(); return [e.clientX - r.left, e.clientY - r.top]; };
+  const angleAt = (e, G) => { const r = stage.getBoundingClientRect(); return Math.atan2(e.clientY - r.top - G.cy, e.clientX - r.left - G.cx); };
   stage.addEventListener("pointerdown", e => {
-    const f = UI.finale; if (!f || f.phase !== "slot" || f.pullT || !f.lever) return;
-    const [x, y] = local(e), L = f.lever;
-    const onLever = x > L.px - L.B * 0.22 && x < L.px + L.B * 0.3 && y > L.py - L.len - L.B * 0.22 && y < L.py + L.B * 0.15;
-    if (!onLever) return;
+    const f = UI.finale; if (!f || f.phase !== "wheel" || !f.wheel.geo || f.wheel.spinT != null) return;
+    const W = f.wheel, G = W.geo, r = stage.getBoundingClientRect();
+    if (Math.hypot(e.clientX - r.left - G.cx, e.clientY - r.top - G.cy) > G.R * 1.25) return;
     e.preventDefault(); AudioEngine.unlock();
     try { stage.setPointerCapture(e.pointerId); } catch (err) {}
-    f.dragging = true; f.drag = 0; f.dragY = y; f.notch = 0;
-    buzz(10);
+    W.dragging = true; W.lastA = angleAt(e, G); W.lastT = performance.now(); W.vel = 0; W.moved = 0; W.lastSeg = Math.floor(-W.rot / SEG);
   });
   stage.addEventListener("pointermove", e => {
-    const f = UI.finale; if (!f || !f.dragging) return;
+    const f = UI.finale; if (!f || f.phase !== "wheel" || !f.wheel.dragging) return;
     e.preventDefault();
-    // keep the knob under the finger: find the pull whose knob height matches the finger
-    const [, y] = local(e), L = f.lever, knobY = (L.py - L.len) + (y - f.dragY);
-    const pull = Math.acos(Math.min(Math.max((L.py - knobY) / L.len, -1), 1)) / (Math.PI * 0.85);
-    f.drag = Math.min(Math.max(pull, 0), 1);
-    const notch = Math.floor(f.drag * 12);        // a click every few degrees, like a ratchet
-    if (notch > f.notch) { AudioEngine.play("clack", 0.35); buzz(f.drag > 0.95 ? 25 : 8); }
-    f.notch = notch;
+    const W = f.wheel, a = angleAt(e, W.geo), now = performance.now();
+    let d = a - W.lastA; if (d > Math.PI) d -= Math.PI * 2; if (d < -Math.PI) d += Math.PI * 2;
+    W.rot += d; W.moved += Math.abs(d);
+    const dt = Math.max(now - W.lastT, 1) / 1000; W.vel = W.vel * 0.5 + (d / dt) * 0.5;
+    W.lastA = a; W.lastT = now;
+    const seg = Math.floor(-W.rot / SEG); if (seg !== W.lastSeg) { W.lastSeg = seg; AudioEngine.play("clack", 0.3); buzz(6); }
   });
   const release = () => {
-    const f = UI.finale; if (!f || !f.dragging) return;
-    f.dragging = false; f.releaseFrom = f.drag; f.releaseT = performance.now() / 1000;
-    if (f.drag > 0.55) UI.pullLever(true);      // pulled far enough: spin!
-    else AudioEngine.play("tap", 0.5);          // not far enough: it just springs back
+    const f = UI.finale; if (!f || f.phase !== "wheel" || !f.wheel.dragging) return;
+    const W = f.wheel; W.dragging = false;
+    if (performance.now() - W.lastT > 120) W.vel = 0;          // finger stopped before letting go
+    const flick = Math.abs(W.vel) > 1.5, dir = flick ? Math.sign(W.vel) : (W.moved > 0.3 ? 0 : 1);
+    if (dir === 0) return;                                      // dragged it but didn't flick: wait for a real spin
+    UI.spinWheel(dir, Math.min(Math.abs(W.vel) / 12, 1));
   };
   stage.addEventListener("pointerup", release);
   stage.addEventListener("pointercancel", release);
