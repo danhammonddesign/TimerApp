@@ -53,6 +53,25 @@ const variants = {
   current(theme) { return this.list(theme)[this.index(theme)]; },
   advance(theme) { if (this.list(theme).length) store.set("variant." + theme.id, this.index(theme) + 1); },
 };
+// Each theme's six prizes: three candy-colored, one gold, one silver, one holographic legendary.
+const EMOJI_SHAPES = {
+  invader: { emoji: "👾", name: "Invader" }, donut: { emoji: "🍩", name: "Donut" }, star: { emoji: "⭐", name: "Star" },
+  robot: { emoji: "🤖", name: "Robot" }, ghost: { emoji: "👻", name: "Ghost" }, gem: { emoji: "💎", name: "Gem" },
+  poop: { emoji: "💩", name: "Poop" }, heart: { emoji: "💖", name: "Heart" }, cat: { emoji: "😻", name: "Kitty" },
+  alien: { emoji: "👽", name: "Alien" }, skull: { emoji: "☠️", name: "Skull" },
+};
+const PRIZE_SETS = {
+  marble: ["invader", "donut", "star", "robot", "ghost", "gem"], sand: ["poop", "star", "heart", "cat", "alien", "skull"],
+  tiles: ["cat", "ghost", "donut", "invader", "heart", "alien"], space: ["star", "ghost", "robot", "alien", "invader", "gem"],
+  ocean: ["heart", "donut", "poop", "cat", "ghost", "skull"], dino: ["skull", "poop", "star", "invader", "robot", "heart"],
+  rainbow: ["heart", "cat", "donut", "gem", "star", "ghost"], robot: ["robot", "invader", "gem", "skull", "alien", "poop"],
+};
+const FINISH = ["candy", "candy", "candy", "gold", "silver", "holo"];
+for (const t of THEMES) t.stickers = PRIZE_SETS[t.id].map((shape, i) => {
+  const finish = FINISH[i], E = EMOJI_SHAPES[shape];
+  const name = finish === "gold" ? "Gold " + E.name : finish === "silver" ? "Silver " + E.name : finish === "holo" ? "Holo " + E.name : E.name;
+  return { id: t.id + "-" + i, emoji: E.emoji, name, rarity: i < 3 ? "common" : i < 5 ? "rare" : "legendary", shape, finish };
+});
 const RARITY = {
   common: { label: "Cool find", color: P.blue, lip: P.blueLip, weight: 60 },
   rare: { label: "Rare!", color: P.purple, lip: P.purpleLip, weight: 30 },
@@ -2012,57 +2031,147 @@ const Trophy3D = {
     const tex = new T.CanvasTexture(c); tex.encoding = T.sRGBEncoding; return tex;
   },
   /** builds the trophy; returns { group, update(t) } */
+  /** builds a 3D emoji figure on a little display base; returns { group, update(t) } */
   build(sticker) {
-    const T = THREE, rar = sticker.rarity, legendary = rar === "legendary";
-    const gold = new T.MeshPhysicalMaterial({ color: 0xffb627, metalness: 1, roughness: 0.16, clearcoat: 1, clearcoatRoughness: 0.08 });
-    const silver = new T.MeshPhysicalMaterial({ color: 0xe8edf2, metalness: 1, roughness: 0.12, clearcoat: 1, clearcoatRoughness: 0.05 });
-    const glass = new T.MeshPhysicalMaterial({ color: 0xcfefff, metalness: 0.1, roughness: 0.02, transparent: true, opacity: 0.38, clearcoat: 1, clearcoatRoughness: 0, envMapIntensity: 2.5, depthWrite: false });
-    const dark = new T.MeshPhysicalMaterial({ color: 0x1b2333, metalness: 0.3, roughness: 0.25, clearcoat: 1, clearcoatRoughness: 0.1 });
-    const holo = this.holoMaterial();
-    const cupMat = rar === "common" ? silver : gold, trimMat = rar === "common" ? gold : silver;
-    const g = new T.Group();
-    // base: glass block on rare/legendary, dark stone on common, with a metal cap
-    const baseMat = rar === "common" ? dark : glass;
-    const base = new T.Mesh(new T.BoxGeometry(2.1, 0.55, 1.5), baseMat); base.position.y = 0.28; g.add(base);
-    if (rar !== "common") { const core = new T.Mesh(new T.BoxGeometry(1.7, 0.36, 1.1), legendary ? holo : dark); core.position.y = 0.28; g.add(core); }
-    const cap = new T.Mesh(new T.CylinderGeometry(0.62, 0.72, 0.16, 48), trimMat); cap.position.y = 0.63; g.add(cap);
-    const plate = new T.Mesh(new T.PlaneGeometry(1.5, 0.36), new T.MeshPhysicalMaterial({ color: 0xffd36b, metalness: 1, roughness: 0.25, map: this.nameTexture(sticker) }));
-    plate.position.set(0, 0.29, 0.76); g.add(plate);
-    // cup: one lathe from stem to rim and back down the inside
-    const prof = [[0, 0.7], [0.36, 0.7], [0.22, 0.8], [0.12, 0.95], [0.11, 1.1], [0.2, 1.22], [0.34, 1.3], [0.56, 1.52], [0.8, 1.9], [0.95, 2.32], [1.02, 2.7], [1.09, 2.86], [1.0, 2.9], [0.93, 2.72], [0.87, 2.34], [0.72, 1.98], [0.42, 1.68], [0, 1.6]]
-      .map(([x, y]) => new T.Vector2(x, y));
-    const cup = new T.Mesh(new T.LatheGeometry(prof, 64), cupMat); cup.material.side = T.DoubleSide; g.add(cup);
-    const knot = new T.Mesh(new T.TorusGeometry(0.15, 0.05, 12, 32), trimMat); knot.rotation.x = Math.PI / 2; knot.position.y = 1.05; g.add(knot);
-    const rim = new T.Mesh(new T.TorusGeometry(1.05, 0.055, 12, 64), trimMat); rim.rotation.x = Math.PI / 2; rim.position.y = 2.88; g.add(rim);
-    for (const sx of [-1, 1]) {
-      const h = new T.Mesh(new T.TorusGeometry(0.42, 0.075, 14, 32, Math.PI * 1.15), cupMat);
-      h.rotation.z = sx > 0 ? -Math.PI * 0.58 : Math.PI * 0.42; h.position.set(sx * 0.98, 2.28, 0); g.add(h);
+    const T = THREE, finish = sticker.finish || "candy", shape = sticker.shape || "star";
+    const holo = this.holoMaterial(), cache = {};
+    const phys = (o) => new T.MeshPhysicalMaterial(Object.assign({ clearcoat: 1, clearcoatRoughness: 0.08 }, o));
+    const gold = phys({ color: 0xffb627, metalness: 1, roughness: 0.16 }), silver = phys({ color: 0xe8edf2, metalness: 1, roughness: 0.12 });
+    const onyx = phys({ color: 0x15171d, metalness: 0.2, roughness: 0.12 }), pearl = phys({ color: 0xfbfbff, roughness: 0.25 });
+    const glass = phys({ color: 0xcfefff, metalness: 0.1, roughness: 0.02, transparent: true, opacity: 0.4, clearcoatRoughness: 0, envMapIntensity: 2.5, depthWrite: false });
+    const metal = finish === "gold" ? gold : finish === "silver" ? silver : null, trim = finish === "gold" ? silver : gold;
+    /** material for a part: "main" body, "accent" colored detail, "dark" eyes/mouths, "light" whites, "glow" lights */
+    const M = (role, color) => {
+      const key = role + color; if (cache[key]) return cache[key];
+      let m;
+      if (role === "dark") m = onyx;
+      else if (role === "light") m = pearl;
+      else if (role === "glow") m = new T.MeshBasicMaterial({ color: new T.Color(color).convertSRGBToLinear() });
+      else if (finish === "holo") m = role === "main" ? holo : glass;
+      else if (metal) m = role === "main" ? metal : trim;
+      // emoji colors are written as normal (sRGB) colors: convert them so they stay bold after tone mapping
+      else m = phys({ color: new T.Color(color).convertSRGBToLinear(), roughness: 0.38, envMapIntensity: 0.7,
+        transparent: color === 0x6fd3ff, opacity: color === 0x6fd3ff ? 0.85 : 1 });
+      return (cache[key] = m);
+    };
+    const g = new T.Group(), fig = new T.Group(); g.add(fig);
+    const add = (geo, mat, x = 0, y = 0, z = 0, parent = fig) => { const m = new T.Mesh(geo, mat); m.position.set(x, y, z); parent.add(m); return m; };
+    const sph = (r, sx = 1, sy = 1, sz = 1) => { const geo = new T.SphereGeometry(r, 40, 28); geo.scale(sx, sy, sz); return geo; };
+    const heartShape = () => { const h = new T.Shape(); h.moveTo(0, -0.9); h.bezierCurveTo(-0.2, -0.7, -1.1, -0.2, -1.0, 0.35); h.bezierCurveTo(-0.95, 0.85, -0.3, 1.0, 0, 0.55); h.bezierCurveTo(0.3, 1.0, 0.95, 0.85, 1.0, 0.35); h.bezierCurveTo(1.1, -0.2, 0.2, -0.7, 0, -0.9); return h; };
+    const extrude = (shp, depth, bevel) => { const geo = new T.ExtrudeGeometry(shp, { depth, bevelEnabled: true, bevelThickness: bevel, bevelSize: bevel * 0.8, bevelSegments: 6, curveSegments: 32 }); geo.center(); return geo; };
+    const smile = (r, tube, x, y, z, mat, arc = Math.PI) => { const m = add(new T.TorusGeometry(r, tube, 10, 32, arc), mat, x, y, z); m.rotation.z = Math.PI + (Math.PI - arc) / 2; return m; };
+    const anim = [];
+    if (shape === "heart") {
+      const h = add(extrude(heartShape(), 0.5, 0.28), M("main", 0xff4d8d)); h.scale.setScalar(1.05);
+      for (const [x, y, s] of [[0.95, 0.85, 0.22], [1.15, 0.5, 0.13], [-0.95, -0.55, 0.15]]) {
+        const st = add(extrude(this.starShape(1, 0.38, 4), 0.05, 0.04), M("accent", 0xffd23d), x, y, 0.25); st.scale.setScalar(s); anim.push(t => { st.rotation.z = t * 1.5; });
+      }
+      anim.push(t => { const k = 1 + Math.sin(t * 4) * 0.03; h.scale.set(1.05 * k, 1.05 * k, 1.05); });
+    } else if (shape === "skull") {
+      const bone = (rot) => { const b = new T.Group(); fig.add(b); b.rotation.z = rot; b.position.z = -0.45;
+        add(new T.CylinderGeometry(0.11, 0.11, 2.3, 16), M("light", 0), 0, 0, 0, b);
+        for (const y of [-1.15, 1.15]) for (const x of [-0.11, 0.11]) add(sph(0.16), M("light", 0), x, y, 0, b); };
+      bone(0.75); bone(-0.75);
+      add(sph(0.9, 1, 0.95, 0.92), M("main", 0xf2efe6), 0, 0.2, 0);
+      const jaw = add(new T.CylinderGeometry(0.52, 0.45, 0.5, 32), M("main", 0xf2efe6), 0, -0.5, 0.18);
+      for (const x of [-0.34, 0.34]) add(sph(0.25, 1, 1.12, 0.5), M("dark", 0), x, 0.15, 0.73);
+      add(sph(0.11, 0.85, 1, 0.5), M("dark", 0), 0, -0.18, 0.86);
+      for (const x of [-0.2, 0, 0.2]) add(new T.BoxGeometry(0.03, 0.26, 0.05), M("dark", 0), x, -0.55, 0.64);
+      anim.push(t => { jaw.position.y = -0.5 - Math.max(0, Math.sin(t * 3)) * 0.06; });
+    } else if (shape === "cat") {
+      add(sph(0.95, 1.12, 0.92, 0.86), M("main", 0xffc83d), 0, 0, 0);
+      for (const sx of [-1, 1]) {
+        const ear = add(new T.ConeGeometry(0.32, 0.55, 32), M("main", 0xffc83d), sx * 0.62, 0.78, 0); ear.rotation.z = -sx * 0.42;
+        const inner = add(new T.ConeGeometry(0.17, 0.32, 24), M("accent", 0xff8fb0), sx * 0.6, 0.74, 0.14); inner.rotation.z = -sx * 0.42;
+        const eye = add(extrude(heartShape(), 0.25, 0.12), M("accent", 0xff3355), sx * 0.38, 0.12, 0.74); eye.scale.setScalar(0.22);
+        anim.push(t => { const k = 0.22 * (1 + Math.abs(Math.sin(t * 3)) * 0.15); eye.scale.set(k, k, 0.22); });
+        for (const dy of [-0.05, 0.08]) { const w = add(new T.CylinderGeometry(0.012, 0.012, 0.55, 6), M("dark", 0), sx * 0.85, -0.22 + dy, 0.55); w.rotation.z = Math.PI / 2 + sx * dy * 2; }
+      }
+      add(sph(0.08, 1.2, 0.8, 0.6), M("accent", 0xff8fb0), 0, -0.13, 0.82);
+      smile(0.16, 0.035, -0.15, -0.28, 0.79, M("dark", 0)); smile(0.16, 0.035, 0.15, -0.28, 0.79, M("dark", 0));
+    } else if (shape === "alien") {
+      const geo = new T.SphereGeometry(1, 48, 32), pos = geo.attributes.position;
+      for (let i = 0; i < pos.count; i++) { const y = pos.getY(i), k = y < 0 ? 1 + y * 0.48 : 1 + y * 0.05; pos.setXYZ(i, pos.getX(i) * k, y * 1.18, pos.getZ(i) * k * 0.88); }
+      geo.computeVertexNormals(); add(geo, M("main", 0xc5d3cf), 0, 0.05, 0);
+      for (const sx of [-1, 1]) { const e = add(sph(0.33, 1.28, 0.6, 0.42), M("dark", 0), sx * 0.4, 0.05, 0.76); e.rotation.z = sx * 0.5; e.rotation.y = sx * 0.35; }
+      add(new T.BoxGeometry(0.16, 0.025, 0.04), M("dark", 0), 0, -0.62, 0.62);
+    } else if (shape === "ghost") {
+      const prof = [[0, 1.1], [0.45, 1.03], [0.75, 0.78], [0.88, 0.35], [0.9, -0.3], [0.88, -0.7], [0, -0.7]].map(([x, y]) => new T.Vector2(x, y));
+      const body = add(new T.LatheGeometry(prof, 48), M("main", 0xf4f6ff));
+      for (let i = 0; i < 6; i++) { const a = i / 6 * Math.PI * 2; add(sph(0.24), M("main", 0xf4f6ff), Math.cos(a) * 0.68, -0.72, Math.sin(a) * 0.68); }
+      for (const sx of [-1, 1]) { add(sph(0.13, 1, 1.3, 0.6), M("dark", 0), sx * 0.3, 0.42, 0.8); const arm = add(sph(0.22, 1, 0.7, 0.8), M("main", 0xf4f6ff), sx * 0.95, 0.05, 0.1); anim.push(t => { arm.position.y = 0.05 + Math.sin(t * 4 + sx) * 0.08; }); }
+      add(sph(0.2, 1, 1.25, 0.5), M("dark", 0), 0, 0.02, 0.86);
+      const tongue = add(sph(0.13, 1, 1.2, 0.6), M("accent", 0xff6f91), 0.06, -0.15, 0.9);
+      anim.push(t => { fig.rotation.z = Math.sin(t * 1.6) * 0.08; tongue.position.y = -0.15 - Math.abs(Math.sin(t * 3)) * 0.04; });
+      body.scale.setScalar(1);
+    } else if (shape === "poop") {
+      const brown = M("main", 0x8a5a33);
+      for (const [R, tube, y] of [[0.72, 0.34, -0.6], [0.52, 0.3, -0.1], [0.32, 0.24, 0.32]]) { const tr = add(new T.TorusGeometry(R, tube, 24, 48), brown, 0, y, 0); tr.rotation.x = Math.PI / 2; }
+      add(sph(0.62, 1, 0.55, 1), brown, 0, -0.6, 0);
+      const tip = add(new T.ConeGeometry(0.24, 0.5, 32), brown, 0.04, 0.68, 0); tip.rotation.z = -0.25;
+      for (const sx of [-1, 1]) { add(sph(0.17), M("light", 0), sx * 0.24, -0.02, 0.66); add(sph(0.08), M("dark", 0), sx * 0.24, -0.02, 0.81); }
+      smile(0.2, 0.05, 0, -0.42, 0.98, M("dark", 0));
+    } else if (shape === "robot") {
+      const rr = (w, h, r) => { const s2 = new T.Shape(); s2.moveTo(-w / 2 + r, -h / 2); s2.lineTo(w / 2 - r, -h / 2); s2.quadraticCurveTo(w / 2, -h / 2, w / 2, -h / 2 + r); s2.lineTo(w / 2, h / 2 - r);
+        s2.quadraticCurveTo(w / 2, h / 2, w / 2 - r, h / 2); s2.lineTo(-w / 2 + r, h / 2); s2.quadraticCurveTo(-w / 2, h / 2, -w / 2, h / 2 - r); s2.lineTo(-w / 2, -h / 2 + r); s2.quadraticCurveTo(-w / 2, -h / 2, -w / 2 + r, -h / 2); return s2; };
+      add(extrude(rr(1.8, 1.5, 0.38), 0.85, 0.14), M("main", 0xb9c7d1));
+      add(extrude(rr(1.32, 0.95, 0.26), 0.04, 0.03), M("dark", 0), 0, -0.02, 0.58);
+      const eyes = [-0.32, 0.32].map(x => add(sph(0.15, 1, 1, 0.5), M("glow", 0x4fe3ff), x, 0.1, 0.63));
+      add(new T.BoxGeometry(0.5, 0.07, 0.03), M("glow", 0x4fe3ff), 0, -0.24, 0.63);
+      add(new T.CylinderGeometry(0.05, 0.05, 0.42, 12), M("accent", 0x7f8c99), 0, 1.0, 0);
+      const bulb = add(sph(0.14), M("glow", 0xff5050), 0, 1.25, 0);
+      for (const sx of [-1, 1]) { const ear = add(new T.CylinderGeometry(0.2, 0.2, 0.18, 24), M("accent", 0xff9a0a), sx * 1.02, 0.05, 0); ear.rotation.z = Math.PI / 2; }
+      anim.push(t => { const on = Math.floor(t * 2) % 2 === 0; bulb.scale.setScalar(on ? 1.15 : 0.85); const blink = (t % 3) < 0.12 ? 0.15 : 1; eyes.forEach(e => e.scale.y = blink); });
+    } else if (shape === "invader") {
+      const pix = ["..X.....X..", "...X...X...", "..XXXXXXX..", ".XX.XXX.XX.", "XXXXXXXXXXX", "X.XXXXXXX.X", "X.X.....X.X", "...XX.XX..."];
+      const s2 = 0.2, geo = new T.BoxGeometry(s2 * 0.94, s2 * 0.94, 0.38), mat = M("main", 0x9b6bff);
+      const cells = []; pix.forEach((row, r) => [...row].forEach((ch, c) => { if (ch === "X") cells.push([c, r]); }));
+      const inst = new T.InstancedMesh(geo, mat, cells.length), mtx = new T.Matrix4();
+      cells.forEach(([c, r], i) => { mtx.makeTranslation((c - 5) * s2, (3.5 - r) * s2, 0); inst.setMatrixAt(i, mtx); });
+      fig.add(inst); fig.scale.setScalar(1.15);
+      anim.push(t => { fig.rotation.z = Math.sin(t * 6) * 0.05; });
+    } else if (shape === "donut") {
+      const base = add(new T.TorusGeometry(0.66, 0.4, 32, 64), M("main", 0xe0a060));
+      const icing = add(new T.TorusGeometry(0.66, 0.42, 32, 64), M("accent", 0xff7ab8), 0, 0, 0.1); icing.scale.z = 0.62;
+      const cols = [0xffd23d, 0x4fe3ff, 0x5bcb0c, 0xffffff, 0xb876ff];
+      for (let i = 0; i < 22; i++) { const a = hash(i * 3.1) * Math.PI * 2, r = 0.66 + (hash(i * 7.7) - 0.5) * 0.5;
+        const sp = add(new T.CylinderGeometry(0.035, 0.035, 0.16, 8), finish === "candy" ? M("accent", cols[i % 5]) : M("light", 0), Math.cos(a) * r, Math.sin(a) * r, 0.36); sp.rotation.z = hash(i * 5.3) * Math.PI; }
+      fig.rotation.x = -0.35;
+    } else if (shape === "gem") {
+      const crown = new T.CylinderGeometry(0.62, 0.98, 0.38, 8).toNonIndexed(); crown.computeVertexNormals();
+      const pav = new T.ConeGeometry(0.98, 1.15, 8).toNonIndexed(); pav.computeVertexNormals();
+      add(crown, M("main", 0x6fd3ff), 0, 0.42, 0); const pv = add(pav, M("main", 0x6fd3ff), 0, -0.35, 0); pv.rotation.x = Math.PI;
+      anim.push(t => { fig.rotation.y = t * 0.9; });
+    } else {   // star
+      add(extrude(this.starShape(1.15, 0.5, 5), 0.38, 0.18), M("main", 0xffd23d));
+      for (const sx of [-1, 1]) add(sph(0.1, 0.8, 1.3, 0.5), M("dark", 0), sx * 0.22, 0.08, 0.5);
+      smile(0.17, 0.04, 0, -0.12, 0.5, M("dark", 0));
     }
-    // medallion on the front with the sticker picture, ringed in holo (legendary) or the trim metal
-    const medal = new T.Group(); medal.position.set(0, 2.18, 0.98); medal.rotation.x = -0.33; g.add(medal);
-    const face = new T.Mesh(new T.CircleGeometry(0.44, 48), new T.MeshPhysicalMaterial({ map: this.emojiTexture(sticker), metalness: 0.2, roughness: 0.3, clearcoat: 1, clearcoatRoughness: 0.05, emissive: 0xffffff, emissiveIntensity: 0.12 }));
-    face.position.z = 0.03; medal.add(face);
-    const ring = new T.Mesh(new T.TorusGeometry(0.47, 0.06, 14, 48), legendary ? holo : trimMat); ring.position.z = 0.03; medal.add(ring);
-    const updaters = [];
-    if (legendary) {
-      // spinning glass star on top + floating sparkles
-      const shape = new T.Shape();
-      for (let i = 0; i < 10; i++) { const a = i / 10 * Math.PI * 2 + Math.PI / 2, r = i % 2 ? 0.17 : 0.42; i ? shape.lineTo(Math.cos(a) * r, Math.sin(a) * r) : shape.moveTo(Math.cos(a) * r, Math.sin(a) * r); }
-      const star = new T.Mesh(new T.ExtrudeGeometry(shape, { depth: 0.14, bevelEnabled: true, bevelThickness: 0.05, bevelSize: 0.04, bevelSegments: 2 }), holo);
-      star.geometry.center(); star.position.y = 3.45; g.add(star);
-      const post = new T.Mesh(new T.CylinderGeometry(0.04, 0.06, 0.4, 12), gold); post.position.y = 3.05; g.add(post);
+    fig.position.y = 1.65;
+    // display base with a name plate
+    const baseMat = finish === "holo" ? glass : finish === "candy" ? pearl : onyx;
+    add(new T.BoxGeometry(2.1, 0.5, 1.4), baseMat, 0, 0.25, 0, g);
+    if (finish === "holo") add(new T.BoxGeometry(1.7, 0.32, 1.0), holo, 0, 0.25, 0, g);
+    const cap = add(new T.CylinderGeometry(0.66, 0.74, 0.12, 48), finish === "candy" ? gold : (metal ? trim : gold), 0, 0.56, 0, g);
+    const plate = add(new T.PlaneGeometry(1.5, 0.34), new T.MeshPhysicalMaterial({ color: 0xffd36b, metalness: 1, roughness: 0.25, map: this.nameTexture(sticker) }), 0, 0.26, 0.71, g);
+    if (finish === "holo") {
       const N = 70, sg = new T.BufferGeometry(), pos = new Float32Array(N * 3); sg.setAttribute("position", new T.BufferAttribute(pos, 3));
       const sparkles = new T.Points(sg, new T.PointsMaterial({ color: 0xfff3b0, size: 0.07, transparent: true, opacity: 0.9, blending: T.AdditiveBlending, depthWrite: false }));
       g.add(sparkles);
-      updaters.push(t => {
-        star.rotation.y = t * 1.6; holo.uniforms.time.value = t;
-        for (let i = 0; i < N; i++) { const a = hash(i) * 6.28 + t * (0.3 + hash(i * 2.7) * 0.5), r = 1.25 + hash(i * 5.1) * 0.6, y = ((hash(i * 3.3) * 3.4 + t * 0.25) % 3.4) + 0.4;
+      anim.push(t => {
+        for (let i = 0; i < N; i++) { const a = hash(i) * 6.28 + t * (0.3 + hash(i * 2.7) * 0.5), r = 1.25 + hash(i * 5.1) * 0.6, y = ((hash(i * 3.3) * 3.2 + t * 0.25) % 3.2) + 0.5;
           pos[i * 3] = Math.cos(a) * r; pos[i * 3 + 1] = y; pos[i * 3 + 2] = Math.sin(a) * r; }
         sg.attributes.position.needsUpdate = true; sparkles.material.size = 0.06 + Math.abs(Math.sin(t * 3)) * 0.03;
       });
-    } else updaters.push(t => { holo.uniforms.time.value = t; });
-    g.position.y = -1.75;
-    return { group: g, update: t => updaters.forEach(u => u(t)) };
+    }
+    anim.push(t => { holo.uniforms.time.value = t; fig.position.y = 1.65 + Math.sin(t * 1.8) * 0.06; });
+    g.position.y = -1.55;
+    return { group: g, update: t => anim.forEach(u => u(t)) };
+  },
+  starShape(r1, r2, n) {
+    const s2 = new THREE.Shape();
+    for (let i = 0; i < n * 2; i++) { const a = i / (n * 2) * Math.PI * 2 + Math.PI / 2, r = i % 2 ? r2 : r1; i ? s2.lineTo(Math.cos(a) * r, Math.sin(a) * r) : s2.moveTo(Math.cos(a) * r, Math.sin(a) * r); }
+    s2.closePath(); return s2;
   },
 };
 /** swap a canvas for a brand-new copy, so a new 3D renderer never inherits an old one's state */
