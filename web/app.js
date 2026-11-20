@@ -2215,7 +2215,13 @@ class TrophyViewer {
     if (!this.trophy) return;
     const c = this.canvas, w = c.clientWidth, h = c.clientHeight;
     if (!w || !h) return;
-    if (this.w !== w || this.h !== h) { this.renderer.setSize(w, h, false); this.camera.aspect = w / h; this.camera.updateProjectionMatrix(); this.w = w; this.h = h; }
+    if (this.w !== w || this.h !== h) {
+      this.renderer.setSize(w, h, false); this.camera.aspect = w / h; this.camera.updateProjectionMatrix(); this.w = w; this.h = h;
+      // move the camera so the prize (about 3.9 tall and 3.2 wide with its base) fills the view without getting cut off
+      const k = 2 * Math.tan(this.camera.fov * Math.PI / 360), fill = 0.92;
+      const dist = Math.max(3.9 / (k * fill), 3.2 / (k * this.camera.aspect * fill));
+      this.camera.position.set(0, 0.45, dist); this.camera.lookAt(0, 0.25, 0);
+    }
     const dt = Math.min(t - (this.lt || t), 0.05); this.lt = t;
     if (!this.dragging) {
       this.yaw += this.vel * dt;
@@ -2225,8 +2231,7 @@ class TrophyViewer {
     }
     this.pop = Math.min(this.pop + dt * 1.8, 1);
     const s = this.pop < 1 ? 1 - Math.pow(1 - this.pop, 3) * Math.cos(this.pop * 9) : 1;
-    const fit = Math.min(1, (w / h) / 0.62);                     // shrink a little on narrow screens so it never gets cut off
-    this.trophy.group.scale.setScalar(Math.max(s, 0.01) * fit);
+    this.trophy.group.scale.setScalar(Math.max(s, 0.01));
     this.trophy.group.rotation.set(this.pitch, this.yaw, 0);
     this.trophy.update(t);
     this.glints.forEach((l, i) => { const a = t * (0.7 + i * 0.35) + i * 2.1; l.position.set(Math.cos(a) * 5, 2.5 + Math.sin(a * 1.3) * 2, Math.sin(a) * 5 + 3); });
@@ -2535,13 +2540,7 @@ const UI = {
     if (show.id === "fireworks") for (let i = 0; i < 8; i++) setTimeout(() => { if (this.finale === f && f.phase === "show") A.play("pop", 0.5); }, i * 750);
     $("finaleTitle").textContent = show.title;
     burst(innerWidth / 2, innerHeight * 0.3, [th.primary, P.yellow, "#fff"], true, true);
-    $("finaleFooter").innerHTML = `
-      <div class="card"><canvas id="footMascot"></canvas><div>
-        <div class="rarity" style="color:${P.yellow}">Prize show</div>
-        <div class="sname">${show.title}</div>
-        ${rewards.streak > 0 ? `<div class="streakline">🔥 ${rewards.streak} day streak</div>` : ""}
-      </div></div>
-      <button class="btn" id="contBtn">Continue</button>`;
+    $("finaleFooter").innerHTML = `<button class="btn" id="contBtn">Continue</button>`;
     $("contBtn").addEventListener("click", () => this.leaveFinale());
   },
   leaveFinale() {
@@ -2571,11 +2570,6 @@ const UI = {
     const sr = $("stage").getBoundingClientRect();
     burst(sr.left + sr.width / 2, sr.top + sr.height / 2, [R.color, "#fff", th.primary], true);
     $("finaleFooter").innerHTML = `
-      <div class="card"><canvas id="footMascot"></canvas><div>
-        <div class="rarity" style="color:${R.color}">${f.jackpot ? "Grand prize · " : ""}${R.label}</div>
-        <div class="sname">${st.name}</div>
-        ${rewards.streak > 0 ? `<div class="streakline">🔥 ${rewards.streak} day streak</div>` : ""}
-      </div></div>
       <button class="btn" id="contBtn">Continue</button>
       <button class="btn outline" id="bookBtn2">Trophy case</button>`;
     $("contBtn").addEventListener("click", () => this.leaveFinale());
