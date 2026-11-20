@@ -1814,7 +1814,7 @@ function drawPrizeWheel(ctx, w, h, f, th, t) {
     ctx.font = `${R * 0.2}px system-ui, "Apple Color Emoji", "Segoe UI Emoji", sans-serif`;
     ctx.save(); ctx.translate(R * 0.7, 0); ctx.rotate(Math.PI / 2); ctx.fillText(kind === "grand" ? "👑" : kind === "show" ? "🎬" : f.icons[i % f.icons.length], 0, 0); ctx.restore();
     ctx.font = `900 ${R * 0.085}px Nunito, ui-rounded, system-ui, sans-serif`; ctx.fillStyle = kind === "grand" ? "#5A3D00" : "rgba(255,255,255,0.95)";
-    ctx.save(); ctx.translate(R * 0.42, 0); ctx.rotate(Math.PI / 2); ctx.fillText(kind === "grand" ? "GRAND" : kind === "show" ? "SHOW" : "STICKER", 0, 0); ctx.restore();
+    ctx.save(); ctx.translate(R * 0.42, 0); ctx.rotate(Math.PI / 2); ctx.fillText(kind === "grand" ? "GRAND" : kind === "show" ? "SHOW" : "TROPHY", 0, 0); ctx.restore();
     ctx.restore();
   }
   for (let i = 0; i < n; i++) { const a = i * SEG; circ(ctx, Math.cos(a) * R * 0.9, Math.sin(a) * R * 0.9, R * 0.03, "#fff"); }   // pegs
@@ -1849,6 +1849,7 @@ const Show3D = {
   available() { return typeof THREE !== "undefined"; },
   start(kind, canvas, t) {
     this.stop();
+    canvas = freshCanvas(canvas);
     const T = THREE;
     try { this.renderer = new T.WebGLRenderer({ canvas, alpha: true, antialias: true }); } catch (e) { this.renderer = null; return false; }
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
@@ -1869,7 +1870,7 @@ const Show3D = {
   stop() {
     if (!this.renderer) return;
     this.scene.traverse(o => { if (o.geometry) o.geometry.dispose(); if (o.material) [].concat(o.material).forEach(m => m.dispose()); });
-    this.renderer.dispose(); this.renderer = null; this.scene = null; this.update = null;
+    this.renderer.dispose(); try { this.renderer.forceContextLoss(); } catch (e) {} this.renderer = null; this.scene = null; this.update = null;
   },
 };
 const SHOW_BUILDERS = {
@@ -1961,6 +1962,205 @@ const SHOW_BUILDERS = {
       legs[0].rotation.x = Math.sin(beat) * 0.35; legs[1].rotation.x = -Math.sin(beat) * 0.35;
       spot.forEach((l, i) => { const a = tt * 2 + i * Math.PI; l.position.set(Math.cos(a) * 4, 3, Math.sin(a) * 3 + 3); });
     };
+  },
+};
+
+// ---- 3D trophies (three.js): silver, gold, glass and holographic
+const Trophy3D = {
+  available() { return typeof THREE !== "undefined"; },
+  /** a soft studio for the metal to reflect: bright sky, dark floor, a few colored light panels */
+  makeEnv(renderer) {
+    const T = THREE, env = new T.Scene();
+    // sky dome colored per vertex: warm white on top, soft blue at the horizon, dark below
+    const skyGeo = new T.SphereGeometry(20, 48, 24), cols = [], pos = skyGeo.attributes.position;
+    const top = new T.Color(0xfffaf0), mid = new T.Color(0xb9b2aa), low = new T.Color(0x1a1714), c = new T.Color();
+    for (let i = 0; i < pos.count; i++) { const h = pos.getY(i) / 20; if (h > 0) c.copy(mid).lerp(top, Math.pow(h, 0.6)); else c.copy(mid).lerp(low, Math.pow(-h, 0.5)); cols.push(c.r, c.g, c.b); }
+    skyGeo.setAttribute("color", new T.Float32BufferAttribute(cols, 3));
+    const sky = new T.Mesh(skyGeo, new T.MeshBasicMaterial({ vertexColors: true, side: T.BackSide }));
+    env.add(sky);
+    const panel = (w, h, color, x, y, z) => { const m = new T.Mesh(new T.PlaneGeometry(w, h), new T.MeshBasicMaterial({ color, side: T.DoubleSide })); m.position.set(x, y, z); m.lookAt(0, 0, 0); env.add(m); };
+    panel(12, 4, 0xffffff, 0, 9, 8); panel(5, 9, 0xffffff, -11, 2, 4); panel(5, 8, 0xfff0d0, 11, 3, -2); panel(6, 3, 0xffffff, 0, -6, 10);
+    panel(3, 5, 0xff8ad2, 8, -1, 9); panel(3, 5, 0x6fe3ff, -8, -1, -9); panel(8, 2, 0xffffff, 0, 3, -13);
+    const pm = new T.PMREMGenerator(renderer), tex = pm.fromScene(env, 0.02).texture;
+    pm.dispose(); env.traverse(o => { if (o.geometry) o.geometry.dispose(); if (o.material) o.material.dispose(); });
+    return tex;
+  },
+  holoMaterial() {
+    const T = THREE;
+    return new T.ShaderMaterial({
+      uniforms: { time: { value: 0 } }, transparent: true,
+      vertexShader: "varying vec3 vN; varying vec3 vV; varying vec3 vW; void main(){ vec4 wp = modelMatrix * vec4(position,1.0); vW = wp.xyz;" +
+        " vN = normalize(mat3(modelMatrix) * normal); vV = normalize(cameraPosition - wp.xyz); gl_Position = projectionMatrix * viewMatrix * wp; }",
+      fragmentShader: "uniform float time; varying vec3 vN; varying vec3 vV; varying vec3 vW;" +
+        " vec3 hsv(float h,float s,float v){ vec3 k = clamp(abs(mod(h*6.0+vec3(0.0,4.0,2.0),6.0)-3.0)-1.0,0.0,1.0); return v*mix(vec3(1.0),k,s); }" +
+        " void main(){ float f = 1.0 - max(dot(vN, vV), 0.0); float h = fract(dot(vN, vec3(0.6,0.9,0.3)) * 0.8 + f * 1.4 + vW.y * 0.35 + time * 0.15);" +
+        " vec3 c = hsv(h, 0.55, 1.0) + pow(f, 3.0) * 0.6; gl_FragColor = linearToOutputTexel(vec4(c, 0.92)); }" });
+  },
+  emojiTexture(sticker) {
+    const T = THREE, c = document.createElement("canvas"); c.width = c.height = 256;
+    const x = c.getContext("2d"), R = RARITY[sticker.rarity];
+    const g = x.createRadialGradient(110, 100, 10, 128, 128, 130); g.addColorStop(0, "#ffffff"); g.addColorStop(0.35, R.color); g.addColorStop(1, R.lip);
+    x.fillStyle = g; x.beginPath(); x.arc(128, 128, 128, 0, Math.PI * 2); x.fill();
+    x.font = '150px system-ui, "Apple Color Emoji", "Segoe UI Emoji", sans-serif'; x.textAlign = "center"; x.textBaseline = "middle"; x.fillText(sticker.emoji, 128, 140);
+    const tex = new T.CanvasTexture(c); tex.encoding = T.sRGBEncoding; return tex;
+  },
+  nameTexture(sticker) {
+    const T = THREE, c = document.createElement("canvas"); c.width = 512; c.height = 128;
+    const x = c.getContext("2d"); x.fillStyle = "#2B2210"; x.font = "900 64px Nunito, ui-rounded, system-ui, sans-serif"; x.textAlign = "center"; x.textBaseline = "middle";
+    let size = 64; while (x.measureText(sticker.name).width > 470 && size > 30) { size -= 4; x.font = `900 ${size}px Nunito, ui-rounded, system-ui, sans-serif`; }
+    x.fillText(sticker.name, 256, 68);
+    const tex = new T.CanvasTexture(c); tex.encoding = T.sRGBEncoding; return tex;
+  },
+  /** builds the trophy; returns { group, update(t) } */
+  build(sticker) {
+    const T = THREE, rar = sticker.rarity, legendary = rar === "legendary";
+    const gold = new T.MeshPhysicalMaterial({ color: 0xffb627, metalness: 1, roughness: 0.16, clearcoat: 1, clearcoatRoughness: 0.08 });
+    const silver = new T.MeshPhysicalMaterial({ color: 0xe8edf2, metalness: 1, roughness: 0.12, clearcoat: 1, clearcoatRoughness: 0.05 });
+    const glass = new T.MeshPhysicalMaterial({ color: 0xcfefff, metalness: 0.1, roughness: 0.02, transparent: true, opacity: 0.38, clearcoat: 1, clearcoatRoughness: 0, envMapIntensity: 2.5, depthWrite: false });
+    const dark = new T.MeshPhysicalMaterial({ color: 0x1b2333, metalness: 0.3, roughness: 0.25, clearcoat: 1, clearcoatRoughness: 0.1 });
+    const holo = this.holoMaterial();
+    const cupMat = rar === "common" ? silver : gold, trimMat = rar === "common" ? gold : silver;
+    const g = new T.Group();
+    // base: glass block on rare/legendary, dark stone on common, with a metal cap
+    const baseMat = rar === "common" ? dark : glass;
+    const base = new T.Mesh(new T.BoxGeometry(2.1, 0.55, 1.5), baseMat); base.position.y = 0.28; g.add(base);
+    if (rar !== "common") { const core = new T.Mesh(new T.BoxGeometry(1.7, 0.36, 1.1), legendary ? holo : dark); core.position.y = 0.28; g.add(core); }
+    const cap = new T.Mesh(new T.CylinderGeometry(0.62, 0.72, 0.16, 48), trimMat); cap.position.y = 0.63; g.add(cap);
+    const plate = new T.Mesh(new T.PlaneGeometry(1.5, 0.36), new T.MeshPhysicalMaterial({ color: 0xffd36b, metalness: 1, roughness: 0.25, map: this.nameTexture(sticker) }));
+    plate.position.set(0, 0.29, 0.76); g.add(plate);
+    // cup: one lathe from stem to rim and back down the inside
+    const prof = [[0, 0.7], [0.36, 0.7], [0.22, 0.8], [0.12, 0.95], [0.11, 1.1], [0.2, 1.22], [0.34, 1.3], [0.56, 1.52], [0.8, 1.9], [0.95, 2.32], [1.02, 2.7], [1.09, 2.86], [1.0, 2.9], [0.93, 2.72], [0.87, 2.34], [0.72, 1.98], [0.42, 1.68], [0, 1.6]]
+      .map(([x, y]) => new T.Vector2(x, y));
+    const cup = new T.Mesh(new T.LatheGeometry(prof, 64), cupMat); cup.material.side = T.DoubleSide; g.add(cup);
+    const knot = new T.Mesh(new T.TorusGeometry(0.15, 0.05, 12, 32), trimMat); knot.rotation.x = Math.PI / 2; knot.position.y = 1.05; g.add(knot);
+    const rim = new T.Mesh(new T.TorusGeometry(1.05, 0.055, 12, 64), trimMat); rim.rotation.x = Math.PI / 2; rim.position.y = 2.88; g.add(rim);
+    for (const sx of [-1, 1]) {
+      const h = new T.Mesh(new T.TorusGeometry(0.42, 0.075, 14, 32, Math.PI * 1.15), cupMat);
+      h.rotation.z = sx > 0 ? -Math.PI * 0.58 : Math.PI * 0.42; h.position.set(sx * 0.98, 2.28, 0); g.add(h);
+    }
+    // medallion on the front with the sticker picture, ringed in holo (legendary) or the trim metal
+    const medal = new T.Group(); medal.position.set(0, 2.18, 0.98); medal.rotation.x = -0.33; g.add(medal);
+    const face = new T.Mesh(new T.CircleGeometry(0.44, 48), new T.MeshPhysicalMaterial({ map: this.emojiTexture(sticker), metalness: 0.2, roughness: 0.3, clearcoat: 1, clearcoatRoughness: 0.05, emissive: 0xffffff, emissiveIntensity: 0.12 }));
+    face.position.z = 0.03; medal.add(face);
+    const ring = new T.Mesh(new T.TorusGeometry(0.47, 0.06, 14, 48), legendary ? holo : trimMat); ring.position.z = 0.03; medal.add(ring);
+    const updaters = [];
+    if (legendary) {
+      // spinning glass star on top + floating sparkles
+      const shape = new T.Shape();
+      for (let i = 0; i < 10; i++) { const a = i / 10 * Math.PI * 2 + Math.PI / 2, r = i % 2 ? 0.17 : 0.42; i ? shape.lineTo(Math.cos(a) * r, Math.sin(a) * r) : shape.moveTo(Math.cos(a) * r, Math.sin(a) * r); }
+      const star = new T.Mesh(new T.ExtrudeGeometry(shape, { depth: 0.14, bevelEnabled: true, bevelThickness: 0.05, bevelSize: 0.04, bevelSegments: 2 }), holo);
+      star.geometry.center(); star.position.y = 3.45; g.add(star);
+      const post = new T.Mesh(new T.CylinderGeometry(0.04, 0.06, 0.4, 12), gold); post.position.y = 3.05; g.add(post);
+      const N = 70, sg = new T.BufferGeometry(), pos = new Float32Array(N * 3); sg.setAttribute("position", new T.BufferAttribute(pos, 3));
+      const sparkles = new T.Points(sg, new T.PointsMaterial({ color: 0xfff3b0, size: 0.07, transparent: true, opacity: 0.9, blending: T.AdditiveBlending, depthWrite: false }));
+      g.add(sparkles);
+      updaters.push(t => {
+        star.rotation.y = t * 1.6; holo.uniforms.time.value = t;
+        for (let i = 0; i < N; i++) { const a = hash(i) * 6.28 + t * (0.3 + hash(i * 2.7) * 0.5), r = 1.25 + hash(i * 5.1) * 0.6, y = ((hash(i * 3.3) * 3.4 + t * 0.25) % 3.4) + 0.4;
+          pos[i * 3] = Math.cos(a) * r; pos[i * 3 + 1] = y; pos[i * 3 + 2] = Math.sin(a) * r; }
+        sg.attributes.position.needsUpdate = true; sparkles.material.size = 0.06 + Math.abs(Math.sin(t * 3)) * 0.03;
+      });
+    } else updaters.push(t => { holo.uniforms.time.value = t; });
+    g.position.y = -1.75;
+    return { group: g, update: t => updaters.forEach(u => u(t)) };
+  },
+};
+/** swap a canvas for a brand-new copy, so a new 3D renderer never inherits an old one's state */
+function freshCanvas(old) { const c = old.cloneNode(false); c.hidden = old.hidden; old.replaceWith(c); return c; }
+/** an interactive trophy on a canvas: drag to spin it, it keeps turning slowly on its own */
+class TrophyViewer {
+  constructor(canvas) {
+    const T = THREE;
+    this.canvas = canvas;
+    this.renderer = new T.WebGLRenderer({ canvas, alpha: true, antialias: true });
+    this.renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+    this.renderer.outputEncoding = T.sRGBEncoding; this.renderer.toneMapping = T.ACESFilmicToneMapping; this.renderer.toneMappingExposure = 1.3;
+    this.scene = new T.Scene(); this.scene.environment = Trophy3D.makeEnv(this.renderer);
+    this.camera = new T.PerspectiveCamera(32, 1, 0.1, 50); this.camera.position.set(0, 0.5, 9.2); this.camera.lookAt(0, 0.1, 0);
+    this.scene.add(new T.AmbientLight(0xffffff, 0.25));
+    this.glints = [0xffffff, 0xffe3a8, 0xbfe8ff].map((c, i) => { const l = new T.PointLight(c, 1.1, 20); this.scene.add(l); return l; });
+    this.yaw = -0.5; this.pitch = 0.08; this.vel = 0.6; this.dragging = false; this.lastTouch = -10; this.pop = 0;
+    this.bindPointer(canvas);
+  }
+  bindPointer(el) {
+    let lx = 0, ly = 0, lt = 0;
+    this.onDown = e => { this.dragging = true; lx = e.clientX; ly = e.clientY; lt = performance.now(); this.vel = 0; try { el.setPointerCapture(e.pointerId); } catch (err) {} e.preventDefault(); };
+    this.onMove = e => {
+      if (!this.dragging) return; e.preventDefault();
+      const now = performance.now(), dx = e.clientX - lx, dy = e.clientY - ly, dt = Math.max(now - lt, 1) / 1000;
+      this.yaw += dx * 0.012; this.pitch = Math.max(-0.5, Math.min(0.6, this.pitch + dy * 0.006));
+      this.vel = this.vel * 0.4 + (dx * 0.012 / dt) * 0.6; lx = e.clientX; ly = e.clientY; lt = now;
+      if (Math.abs(dx) > 6) buzz(4);
+    };
+    this.onUp = () => { if (!this.dragging) return; this.dragging = false; this.lastTouch = performance.now() / 1000; if (performance.now() - lt > 120) this.vel = 0; this.vel = Math.max(-14, Math.min(14, this.vel)); };
+    el.addEventListener("pointerdown", this.onDown); el.addEventListener("pointermove", this.onMove);
+    el.addEventListener("pointerup", this.onUp); el.addEventListener("pointercancel", this.onUp);
+  }
+  show(sticker) {
+    if (this.trophy) { this.scene.remove(this.trophy.group); this.disposeGroup(this.trophy.group); }
+    this.trophy = Trophy3D.build(sticker); this.scene.add(this.trophy.group); this.pop = 0;
+  }
+  render(t) {
+    if (!this.trophy) return;
+    const c = this.canvas, w = c.clientWidth, h = c.clientHeight;
+    if (!w || !h) return;
+    if (this.w !== w || this.h !== h) { this.renderer.setSize(w, h, false); this.camera.aspect = w / h; this.camera.updateProjectionMatrix(); this.w = w; this.h = h; }
+    const dt = Math.min(t - (this.lt || t), 0.05); this.lt = t;
+    if (!this.dragging) {
+      this.yaw += this.vel * dt;
+      const idle = 0.55, k = Math.min(dt * 1.5, 1);
+      this.vel += (idle - this.vel) * k * (t - this.lastTouch > 1.2 ? 1 : 0.25);
+      this.pitch += (0.08 - this.pitch) * Math.min(dt * 1.5, 1);
+    }
+    this.pop = Math.min(this.pop + dt * 1.8, 1);
+    const s = this.pop < 1 ? 1 - Math.pow(1 - this.pop, 3) * Math.cos(this.pop * 9) : 1;
+    const fit = Math.min(1, (w / h) / 0.62);                     // shrink a little on narrow screens so it never gets cut off
+    this.trophy.group.scale.setScalar(Math.max(s, 0.01) * fit);
+    this.trophy.group.rotation.set(this.pitch, this.yaw, 0);
+    this.trophy.update(t);
+    this.glints.forEach((l, i) => { const a = t * (0.7 + i * 0.35) + i * 2.1; l.position.set(Math.cos(a) * 5, 2.5 + Math.sin(a * 1.3) * 2, Math.sin(a) * 5 + 3); });
+    this.renderer.render(this.scene, this.camera);
+  }
+  disposeGroup(g) { g.traverse(o => { if (o.geometry) o.geometry.dispose(); if (o.material) [].concat(o.material).forEach(m => { if (m.map) m.map.dispose(); m.dispose(); }); }); }
+  destroy() {
+    const el = this.canvas;
+    el.removeEventListener("pointerdown", this.onDown); el.removeEventListener("pointermove", this.onMove);
+    el.removeEventListener("pointerup", this.onUp); el.removeEventListener("pointercancel", this.onUp);
+    if (this.trophy) this.disposeGroup(this.trophy.group);
+    if (this.scene.environment) this.scene.environment.dispose();
+    this.renderer.dispose(); try { this.renderer.forceContextLoss(); } catch (e) {} this.trophy = null;
+  }
+}
+/** still pictures of trophies for the trophy case grid, rendered once and cached */
+const TrophyThumbs = {
+  cache: {}, queue: [], busy: false, renderer: null,
+  get(sticker, cb) {
+    if (this.cache[sticker.id]) { cb(this.cache[sticker.id]); return; }
+    this.queue.push([sticker, cb]); if (!this.busy) this.pump();
+  },
+  pump() {
+    const job = this.queue.shift(); if (!job) { this.busy = false; return; }
+    this.busy = true;
+    setTimeout(() => {
+      try {
+        const T = THREE;
+        if (!this.renderer) {
+          const c = document.createElement("canvas"); c.width = c.height = 240;
+          this.renderer = new T.WebGLRenderer({ canvas: c, alpha: true, antialias: true, preserveDrawingBuffer: true });
+          this.renderer.setSize(240, 240, false); this.renderer.outputEncoding = T.sRGBEncoding; this.renderer.toneMapping = T.ACESFilmicToneMapping; this.renderer.toneMappingExposure = 1.3;
+          this.scene = new T.Scene(); this.scene.environment = Trophy3D.makeEnv(this.renderer);
+          this.scene.add(new T.AmbientLight(0xffffff, 0.3)); const l = new T.PointLight(0xffffff, 1.2, 20); l.position.set(3, 4, 6); this.scene.add(l);
+          this.camera = new T.PerspectiveCamera(32, 1, 0.1, 50); this.camera.position.set(0, 0.6, 9.4); this.camera.lookAt(0, 0.1, 0);
+        }
+        const [sticker, cb] = job, tr = Trophy3D.build(sticker);
+        tr.group.rotation.set(0.1, -0.45, 0); tr.update(1.3); this.scene.add(tr.group);
+        this.renderer.render(this.scene, this.camera);
+        const url = this.renderer.domElement.toDataURL("image/png");
+        this.scene.remove(tr.group); TrophyViewer.prototype.disposeGroup(tr.group);
+        this.cache[sticker.id] = url; cb(url);
+      } catch (e) { /* no 3D: keep the flat badge */ }
+      this.pump();
+    }, 0);
   },
 };
 
@@ -2197,7 +2397,7 @@ const UI = {
         A.play("pop"); A.play("sparkle", 0.6); buzz([20, 30, 20]);
         setTimeout(() => this.startShow(), 1200);
       } else {
-        $("finaleTitle").textContent = "You won a sticker!";
+        $("finaleTitle").textContent = "You won a trophy!";
         A.play("pop"); A.play("sparkle", 0.6); buzz([20, 30, 20]);
         setTimeout(() => this.reveal(), 1200);
       }
@@ -2230,6 +2430,8 @@ const UI = {
   leaveFinale() {
     const A = AudioEngine;
     A.play("tap"); A.stopVoice(); A.stopMusic(); Show3D.stop(); $("showCanvas").hidden = true;
+    if (this.trophyViewer) { this.trophyViewer.destroy(); this.trophyViewer = null; }
+    $("badge").hidden = true; $("badge").classList.remove("ghost");
     this.finale = null; this.session = null; this.show("home"); this.buildHome();
   },
   reveal() {
@@ -2238,10 +2440,17 @@ const UI = {
     A.play("sparkle"); if (!f.jackpot) A.play("fanfare", 0.6); buzz([30, 30, 50]);
     this.flash();
     f.phase = "reveal";
-    $("finaleTitle").textContent = f.jackpot ? "Grand prize!" : "New sticker!";
+    $("finaleTitle").textContent = f.jackpot ? "Grand prize!" : "New trophy!";
     const badge = $("badge");
-    badge.innerHTML = `<div class="badge" style="width:200px;height:200px;background:${R.color};box-shadow:0 10px 0 ${R.lip}"><div class="ring"></div><span style="font-size:100px;line-height:1">${st.emoji}</span></div>` + (f.isNew ? '<span class="new">NEW</span>' : "");
-    badge.hidden = false; badge.classList.remove("show"); void badge.offsetWidth; badge.classList.add("show");
+    let in3D = false;
+    if (Trophy3D.available()) {
+      try { const canvas = freshCanvas($("showCanvas")); canvas.hidden = false; this.trophyViewer = new TrophyViewer(canvas); this.trophyViewer.show(st); in3D = true; }
+      catch (e) { $("showCanvas").hidden = true; this.trophyViewer = null; }
+    }
+    badge.innerHTML = in3D ? (f.isNew ? '<span class="new">NEW</span>' : "") + '<span class="spin-hint">Drag to spin</span>'
+      : `<div class="badge" style="width:200px;height:200px;background:${R.color};box-shadow:0 10px 0 ${R.lip}"><div class="ring"></div><span style="font-size:100px;line-height:1">${st.emoji}</span></div>` + (f.isNew ? '<span class="new">NEW</span>' : "");
+    badge.classList.toggle("ghost", in3D);
+    badge.hidden = false; badge.classList.remove("show"); void badge.offsetWidth; if (!in3D) badge.classList.add("show");
     const sr = $("stage").getBoundingClientRect();
     burst(sr.left + sr.width / 2, sr.top + sr.height / 2, [R.color, "#fff", th.primary], true);
     $("finaleFooter").innerHTML = `
@@ -2251,7 +2460,7 @@ const UI = {
         ${rewards.streak > 0 ? `<div class="streakline">🔥 ${rewards.streak} day streak</div>` : ""}
       </div></div>
       <button class="btn" id="contBtn">Continue</button>
-      <button class="btn outline" id="bookBtn2">Sticker book</button>`;
+      <button class="btn outline" id="bookBtn2">Trophy case</button>`;
     $("contBtn").addEventListener("click", () => this.leaveFinale());
     $("bookBtn2").addEventListener("click", () => { A.play("tap"); this.openBook(st.id); });
   },
@@ -2266,6 +2475,7 @@ const UI = {
     } else if (f.phase === "show") {
       Show3D.render(t);
     } else if (f.phase === "reveal") {
+      if (this.trophyViewer) this.trophyViewer.render(t);
       const R = RARITY[f.sticker.rarity], a = t * 0.35, r = Math.max(w, h);
       ctx.save(); ctx.translate(w / 2, h / 2); ctx.globalAlpha = 0.22; ctx.fillStyle = R.color;
       for (let i = 0; i < 14; i++) { const a0 = a + i * Math.PI * 2 / 14; ctx.beginPath(); ctx.moveTo(0, 0); ctx.arc(0, 0, r, a0, a0 + Math.PI / 14); ctx.closePath(); ctx.fill(); }
@@ -2281,17 +2491,45 @@ const UI = {
       <div class="bsec"><h3>${t.name}</h3><div class="bgrid">${t.stickers.map(s => {
         const n = rewards.counts[s.id] || 0, R = RARITY[s.rarity];
         const bg = n ? R.color : P.card, lip = n ? R.lip : P.border;
-        return `<div class="bitem ${s.id === highlight ? "hl" : ""}"><div class="badge" style="width:72px;height:72px;background:${bg};box-shadow:0 4px 0 ${lip}">
+        return `<div class="bitem ${s.id === highlight ? "hl" : ""} ${n ? "owned" : ""}" data-id="${s.id}"><div class="badge" style="width:72px;height:72px;background:${bg};box-shadow:0 4px 0 ${lip}">
           <div class="ring" style="border-width:3px;border-color:${n ? "rgba(255,255,255,.85)" : "rgba(255,255,255,.1)"}"></div>
           <span style="font-size:36px;line-height:1;${n ? "" : "color:" + P.border}">${n ? s.emoji : "?"}</span>${n > 1 ? `<span class="xn">x${n}</span>` : ""}</div>
           <span class="nm ${n ? "" : "unk"}">${n ? s.name : "???"}</span></div>`;
       }).join("")}</div></div>`).join("");
     $("book").hidden = false;
+    // swap the flat badges for 3D trophy pictures, and let them be tapped to inspect
+    const all = Object.fromEntries(THEMES.flatMap(t => t.stickers).map(x => [x.id, x]));
+    $("bookList").querySelectorAll(".bitem.owned").forEach(el => {
+      const st = all[el.dataset.id];
+      el.addEventListener("click", () => this.openTrophy(st));
+      if (Trophy3D.available()) TrophyThumbs.get(st, url => {
+        const b = el.querySelector(".badge"); if (!b) return;
+        const xn = b.querySelector(".xn");
+        b.outerHTML = `<div class="trophy-thumb"><img src="${url}" alt="${st.name} trophy">${xn ? xn.outerHTML : ""}</div>`;
+      });
+    });
+  },
+  openTrophy(st) {
+    AudioEngine.play("sparkle", 0.6); buzz(10);
+    const R = RARITY[st.rarity], n = rewards.counts[st.id] || 0;
+    $("tvRarity").textContent = R.label + (n > 1 ? ` · won ${n} times` : ""); $("tvRarity").style.color = R.color;
+    $("tvName").textContent = st.name;
+    $("trophyView").hidden = false;
+    if (!Trophy3D.available()) { $("tvHint").textContent = st.emoji; return; }
+    try { if (!this.caseViewer) this.caseViewer = new TrophyViewer(freshCanvas($("trophyCanvas"))); this.caseViewer.show(st); }
+    catch (e) { $("tvHint").textContent = st.emoji; }
+  },
+  closeTrophy() {
+    AudioEngine.play("tap"); $("trophyView").hidden = true;
+    if (this.caseViewer) { this.caseViewer.destroy(); this.caseViewer = null; }
   },
 };
 
 // ============================================================ wiring
 $("startBtn").addEventListener("click", () => UI.start());
+$("trophyClose").addEventListener("click", () => UI.closeTrophy());
+// the finale trophy listens on its own canvas; just hide the "drag to spin" hint once it's touched
+$("stage").addEventListener("pointerdown", () => { if (UI.trophyViewer) $("badge").classList.add("touched"); });
 // the prize wheel: grab it and flick it round, or just tap it
 (() => {
   const stage = $("stage");
@@ -2379,6 +2617,7 @@ function frame(nowMs) {
     const { ctx, w, h } = fitCanvas($("stageCanvas")); UI.drawStage(ctx, w, h, t);
     const fm = $("footMascot"); if (fm) { const r = fitCanvas(fm); drawMascot(r.ctx, 0, 0, Math.min(r.w, r.h / 1.15), { costume: th.costume, talking: AudioEngine.speaking }, t); }
   }
+  if (UI.caseViewer && !$("trophyView").hidden) UI.caseViewer.render(t);
   { const { ctx } = fitCanvas($("fx")); drawParticles(ctx, dt); }
   requestAnimationFrame(frame);
 }

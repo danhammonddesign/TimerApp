@@ -117,6 +117,21 @@ button:focus-visible { outline: 3px solid var(--white); outline-offset: 3px; }
 #stageCanvas, #showCanvas { position: absolute; inset: 0; width: 100%; height: 100%; }
 #badge { position: absolute; left: 50%; top: 50%; width: 200px; height: 200px; margin: -100px 0 0 -100px; }
 #badge.show { animation: spinIn .9s cubic-bezier(.3,1.4,.5,1) both; }
+#badge.ghost { pointer-events: none; left: 0; right: 0; top: 0; bottom: 0; width: auto; height: auto; margin: 0; }
+#badge.ghost .new { top: 8%; right: 14%; }
+.spin-hint { position: absolute; left: 50%; bottom: 4%; transform: translateX(-50%); font-size: 14px; color: rgba(255,255,255,.75);
+  background: rgba(0,0,0,.3); padding: 4px 12px; border-radius: 999px; white-space: nowrap; animation: hintPulse 1.6s ease-in-out infinite; }
+#badge.touched .spin-hint { display: none; }
+@keyframes hintPulse { 50% { opacity: .45 } }
+#trophyView { position: fixed; inset: 0; z-index: 70; background: radial-gradient(circle at 50% 42%, #2C4F73 0%, #131F24 70%); display: flex; flex-direction: column; }
+#trophyCanvas { flex: 1; min-height: 0; width: 100%; touch-action: none; }
+#trophyClose { position: absolute; top: calc(10px + env(safe-area-inset-top, 0px)); right: max(12px, env(safe-area-inset-right, 0px)); color: #fff; }
+.tv-info { text-align: center; padding: 0 20px calc(28px + env(safe-area-inset-bottom, 0px)); display: flex; flex-direction: column; gap: 4px; }
+.tv-hint { color: var(--muted); font-size: 15px; padding-top: 6px; }
+.trophy-thumb { position: relative; width: 84px; height: 84px; }
+.trophy-thumb img { width: 100%; height: 100%; object-fit: contain; filter: drop-shadow(0 4px 6px rgba(0,0,0,.4)); }
+.bitem.owned { cursor: pointer; }
+.bitem.owned:active { transform: scale(.94); }
 @keyframes spinIn { from { transform: scale(.01) rotate(-360deg) } to { transform: none } }
 .badge { position: relative; border-radius: 50%; display: flex; align-items: center; justify-content: center; }
 .badge .ring { position: absolute; inset: 7%; border-radius: 50%; border: 4px solid rgba(255,255,255,.85); }
@@ -160,7 +175,7 @@ button:focus-visible { outline: 3px solid var(--white); outline-offset: 3px; }
   <section class="screen" id="home">
     <div class="stats">
       <span class="streak" id="streak">🔥 0</span>
-      <button class="book" id="bookBtn">📖 <span id="bookCount">0/48</span></button>
+      <button class="book" id="bookBtn">🏆 <span id="bookCount">0/48</span></button>
       <span class="spacer"></span>
       <button class="toggle" id="musicBtn" aria-label="Music on or off">🎵</button>
       <button class="toggle" id="voiceBtn" aria-label="Voice on or off">🗣️</button>
@@ -215,10 +230,15 @@ button:focus-visible { outline: 3px solid var(--white); outline-offset: 3px; }
   </div>
 </div>
 <div id="book" hidden>
-  <header><h2>Sticker book</h2><button class="iconbtn" id="bookClose" aria-label="Close">✕</button></header>
+  <header><h2>Trophy case</h2><button class="iconbtn" id="bookClose" aria-label="Close">✕</button></header>
   <div class="progress"><i id="bookBar"></i></div>
   <div class="count" id="bookText"></div>
   <div class="list" id="bookList"></div>
+</div>
+<div id="trophyView" hidden>
+  <canvas id="trophyCanvas"></canvas>
+  <button class="iconbtn" id="trophyClose" aria-label="Close">✕</button>
+  <div class="tv-info"><div class="rarity" id="tvRarity"></div><div class="sname" id="tvName"></div><div class="tv-hint" id="tvHint">Drag to spin it around</div></div>
 </div>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 <script src="app.js"></script>
