@@ -2394,6 +2394,7 @@ const UI = {
     btn.disabled = false; btn.textContent = "Start brushing";
     AudioEngine.stopVoice(); AudioEngine.play("sparkle");
     this.session = new Session(th, settings.duration);
+    const pb = $("pauseBtn"); pb.textContent = "Pause"; pb.classList.add("outline");
     variants.advance(th);         // next time (after finishing or quitting) it's a different one
     mouthState.bx = null;
     const segs = $("segs"); segs.innerHTML = ZONES.map(() => '<div class="seg"><i></i></div>').join("");
@@ -2430,35 +2431,42 @@ const UI = {
   releaseWake() { try { this.wakeLock && this.wakeLock.release(); } catch (e) {} this.wakeLock = null; },
 
   // ---------- finale
+  /** time's up: celebrate right on the brushing screen so kids can see what they made, then go to the prize wheel */
   finish() {
     const s = this.session, th = s.theme;
     this.releaseWake();
     rewards.brushed();
     $("countdown").innerHTML = "";
-    const f = this.finale = { phase: "boom", t0: performance.now() / 1000, sticker: null, isNew: false };
-    $("finaleTitle").textContent = th.finale;
-    $("finaleTitle").style.animation = "none"; void $("finaleTitle").offsetWidth; $("finaleTitle").style.animation = "";
-    $("badge").hidden = true; $("badge").className = ""; $("showCanvas").hidden = true;
-    $("finaleFooter").innerHTML = '<div style="height:63px"></div>';
-    this.show("finale");
+    const f = this.finale = { phase: "done", t0: performance.now() / 1000, sticker: null, isNew: false };
     const A = AudioEngine;
-    A.play("boom"); buzz([30, 40, 60]);
+    A.play("boom", 0.7); buzz([30, 40, 60]);
     this.flash();
-    $("app").classList.remove("shake"); void $("app").offsetWidth; $("app").classList.add("shake");
-    burst(innerWidth / 2, innerHeight * 0.45, [...th.shapes, th.primary, P.pink, P.green], true);
-    const at = (sec, fn) => setTimeout(() => { if (this.finale === f) fn(); }, sec * 1000);
-    at(0.6, () => { A.play("fanfare", 0.8); A.sayNow(th.id, "finale"); burst(innerWidth * 0.18, innerHeight * 0.28, [P.yellow, "#fff"], true, true); burst(innerWidth * 0.82, innerHeight * 0.22, [th.primary, "#fff"], true, true); });
-    at(1.4, () => { A.play("sparkle"); burst(innerWidth * 0.5, innerHeight * 0.2, [th.light, "#fff"], true, true); });
-    at(3.4, () => {
-      A.play("whoosh");
-      f.phase = "wheel"; f.wheelT = performance.now() / 1000;
-      f.icons = th.stickers.filter(x => x.rarity !== "legendary").map(x => x.emoji);
-      f.wheel = { rot: -SEG / 2, spinT: null, done: false, dir: 1 };
-      $("finaleTitle").textContent = "Spin the wheel!";
-      $("finaleFooter").innerHTML = '<button class="btn" id="spinBtn">Spin the wheel</button>';
-      $("spinBtn").addEventListener("click", () => this.spinWheel(1));
-    });
-    at(18, () => this.spinWheel(1));
+    const b = $("zoneBubble"); b.innerHTML = '<span class="sym">🎉</span>All done!'; b.classList.remove("pop"); void b.offsetWidth; b.classList.add("pop");
+    const pb = $("pauseBtn"); pb.textContent = "Spin the prize wheel"; pb.classList.remove("outline");
+    const r = $("timerWrap").getBoundingClientRect(), cx = r.left + r.width / 2;
+    burst(cx, r.top + r.height * 0.4, [...th.shapes, th.primary, P.pink, P.green, P.yellow], true);
+    const at = (sec, fn) => setTimeout(() => { if (this.finale === f && f.phase === "done") fn(); }, sec * 1000);
+    at(0.6, () => { A.play("fanfare", 0.8); A.sayNow(th.id, "finale"); burst(innerWidth * 0.15, innerHeight * 0.2, [P.yellow, "#fff"], true, true); burst(innerWidth * 0.85, innerHeight * 0.18, [th.primary, "#fff"], true, true); });
+    at(1.6, () => { A.play("sparkle"); burst(innerWidth * 0.5, innerHeight * 0.12, [th.light, "#fff"], true, true); });
+    at(2.8, () => { burst(innerWidth * 0.25, innerHeight * 0.35, [P.pink, P.yellow, "#fff"], true, true); burst(innerWidth * 0.75, innerHeight * 0.3, [P.green, P.blue, "#fff"], true, true); });
+    at(4.2, () => { A.play("sparkle", 0.6); burst(cx, r.top + r.height * 0.3, [th.primary, th.light, "#fff"], true, true); });
+    at(7, () => this.toWheel());
+  },
+  /** leave the finished picture and bring up the prize wheel */
+  toWheel() {
+    const f = this.finale; if (!f || f.phase !== "done") return;
+    const th = this.session.theme, A = AudioEngine;
+    A.play("whoosh");
+    f.phase = "wheel"; f.wheelT = performance.now() / 1000;
+    f.icons = th.stickers.filter(x => x.rarity !== "legendary").map(x => x.emoji);
+    f.wheel = { rot: -SEG / 2, spinT: null, done: false, dir: 1 };
+    $("badge").hidden = true; $("badge").className = ""; $("showCanvas").hidden = true;
+    $("finaleTitle").textContent = "Spin the wheel!";
+    $("finaleTitle").style.animation = "none"; void $("finaleTitle").offsetWidth; $("finaleTitle").style.animation = "";
+    $("finaleFooter").innerHTML = '<button class="btn" id="spinBtn">Spin the wheel</button>';
+    $("spinBtn").addEventListener("click", () => this.spinWheel(1));
+    this.show("finale");
+    setTimeout(() => { if (this.finale === f) this.spinWheel(1); }, 18000);
   },
   flash() { $("flash").classList.remove("on"); void $("flash").offsetWidth; $("flash").classList.add("on"); },
   /** spin the wheel; where it stops is picked here, then the wheel eases round to that spot */
@@ -2676,8 +2684,8 @@ $("bookBtn").addEventListener("click", () => { AudioEngine.unlock(); AudioEngine
 $("bookClose").addEventListener("click", () => { AudioEngine.play("tap"); $("book").hidden = true; });
 $("musicBtn").addEventListener("click", () => { AudioEngine.unlock(); settings.music = !settings.music; store.set("music", settings.music); AudioEngine.play("tap"); UI.buildHome(); });
 $("voiceBtn").addEventListener("click", () => { AudioEngine.unlock(); settings.voice = !settings.voice; store.set("voice", settings.voice); if (!settings.voice) AudioEngine.stopVoice(); AudioEngine.play("tap"); UI.buildHome(); });
-$("quitBtn").addEventListener("click", () => UI.pause());
-$("pauseBtn").addEventListener("click", () => UI.pause());
+$("quitBtn").addEventListener("click", () => UI.finale && UI.finale.phase === "done" ? UI.toWheel() : UI.pause());
+$("pauseBtn").addEventListener("click", () => UI.finale && UI.finale.phase === "done" ? UI.toWheel() : UI.pause());
 $("resumeBtn").addEventListener("click", () => UI.resume());
 $("endBtn").addEventListener("click", () => { AudioEngine.play("tap"); UI.quit(); });
 // grown-ups: hold the time for 1.5 seconds to jump to the end and test the finale
