@@ -1847,14 +1847,16 @@ function drawPrizeWheel(ctx, w, h, f, th, t) {
   ctx.beginPath(); ctx.moveTo(-R * 0.08, -R * 0.1); ctx.lineTo(R * 0.08, -R * 0.1); ctx.lineTo(0, R * 0.16); ctx.closePath(); ctx.fillStyle = P.red; ctx.fill();
   circ(ctx, 0, -R * 0.07, R * 0.045, "#fff");
   ctx.restore();
-  // hint: curved arrows until it has been spun
+  // hint: a hand that swipes across the wheel until it has been spun
   if (W.spinT == null && !W.dragging) {
-    ctx.globalAlpha = 0.6 + 0.4 * Math.sin(t * 5); ctx.lineWidth = 5; ctx.lineCap = "round"; ctx.strokeStyle = "#fff";
-    const a0 = -0.5 + Math.sin(t * 2) * 0.15;
-    ctx.beginPath(); ctx.arc(cx, cy, R * 1.28, a0, a0 + 0.7); ctx.stroke();
-    const ex = cx + Math.cos(a0 + 0.7) * R * 1.28, ey = cy + Math.sin(a0 + 0.7) * R * 1.28;
-    tri(ctx, ex, ey, 16, 14, "#fff", (a0 + 0.7) * 180 / Math.PI + 180);
-    ctx.lineCap = "butt"; ctx.globalAlpha = 1;
+    const u = (t * 0.7) % 1, k = Math.min(u / 0.6, 1), e2 = 1 - Math.pow(1 - k, 2);
+    const hx = cx - R * 0.55 + e2 * R * 1.1, hy = cy - R * 0.55 + Math.sin(e2 * Math.PI) * -R * 0.08;
+    ctx.globalAlpha = u < 0.6 ? 0.9 : Math.max(0, 0.9 - (u - 0.6) * 4);
+    ctx.lineWidth = 5; ctx.lineCap = "round"; ctx.strokeStyle = "rgba(255,255,255,0.6)";
+    ctx.beginPath(); ctx.moveTo(cx - R * 0.55, cy - R * 0.55); ctx.lineTo(hx, hy); ctx.stroke(); ctx.lineCap = "butt";
+    ctx.font = `${R * 0.3}px system-ui, "Apple Color Emoji", "Segoe UI Emoji", sans-serif`; ctx.textAlign = "center"; ctx.textBaseline = "middle";
+    ctx.fillText("👆", hx + R * 0.05, hy + R * 0.14);
+    ctx.globalAlpha = 1;
   }
 }
 
@@ -2448,9 +2450,8 @@ const UI = {
     const at = (sec, fn) => setTimeout(() => { if (this.finale === f && f.phase === "done") fn(); }, sec * 1000);
     at(0.6, () => { A.play("fanfare", 0.8); A.sayNow(th.id, "finale"); burst(innerWidth * 0.15, innerHeight * 0.2, [P.yellow, "#fff"], true, true); burst(innerWidth * 0.85, innerHeight * 0.18, [th.primary, "#fff"], true, true); });
     at(1.6, () => { A.play("sparkle"); burst(innerWidth * 0.5, innerHeight * 0.12, [th.light, "#fff"], true, true); });
-    at(2.8, () => { burst(innerWidth * 0.25, innerHeight * 0.35, [P.pink, P.yellow, "#fff"], true, true); burst(innerWidth * 0.75, innerHeight * 0.3, [P.green, P.blue, "#fff"], true, true); });
-    at(4.2, () => { A.play("sparkle", 0.6); burst(cx, r.top + r.height * 0.3, [th.primary, th.light, "#fff"], true, true); });
-    at(7, () => this.toWheel());
+    at(2.2, () => { burst(innerWidth * 0.25, innerHeight * 0.35, [P.pink, P.yellow, "#fff"], true, true); burst(innerWidth * 0.75, innerHeight * 0.3, [P.green, P.blue, "#fff"], true, true); });
+    at(3.2, () => this.toWheel());
   },
   /** leave the finished picture and bring up the prize wheel */
   toWheel() {
@@ -2461,12 +2462,11 @@ const UI = {
     f.icons = th.stickers.filter(x => x.rarity !== "legendary").map(x => x.emoji);
     f.wheel = { rot: -SEG / 2, spinT: null, done: false, dir: 1 };
     $("badge").hidden = true; $("badge").className = ""; $("showCanvas").hidden = true;
-    $("finaleTitle").textContent = "Spin the wheel!";
+    $("finaleTitle").textContent = "Swipe to spin!";
     $("finaleTitle").style.animation = "none"; void $("finaleTitle").offsetWidth; $("finaleTitle").style.animation = "";
-    $("finaleFooter").innerHTML = '<button class="btn" id="spinBtn">Spin the wheel</button>';
+    $("finaleFooter").innerHTML = '<button class="btn outline" id="spinBtn">Or tap here to spin</button>';
     $("spinBtn").addEventListener("click", () => this.spinWheel(1));
     this.show("finale");
-    setTimeout(() => { if (this.finale === f) this.spinWheel(1); }, 18000);
   },
   flash() { $("flash").classList.remove("on"); void $("flash").offsetWidth; $("flash").classList.add("on"); },
   /** spin the wheel; where it stops is picked here, then the wheel eases round to that spot */
@@ -2647,35 +2647,38 @@ $("startBtn").addEventListener("click", () => UI.start());
 $("trophyClose").addEventListener("click", () => UI.closeTrophy());
 // the finale trophy listens on its own canvas; just hide the "drag to spin" hint once it's touched
 $("stage").addEventListener("pointerdown", () => { if (UI.trophyViewer) $("badge").classList.add("touched"); });
-// the prize wheel: grab it and flick it round, or just tap it
+// the prize wheel: swipe anywhere on it to spin; the wheel follows the finger and a faster swipe spins longer
 (() => {
   const stage = $("stage");
-  const angleAt = (e, G) => { const r = stage.getBoundingClientRect(); return Math.atan2(e.clientY - r.top - G.cy, e.clientX - r.left - G.cx); };
+  const local = e => { const r = stage.getBoundingClientRect(); return [e.clientX - r.left, e.clientY - r.top]; };
   stage.addEventListener("pointerdown", e => {
     const f = UI.finale; if (!f || f.phase !== "wheel" || !f.wheel.geo || f.wheel.spinT != null) return;
-    const W = f.wheel, G = W.geo, r = stage.getBoundingClientRect();
-    if (Math.hypot(e.clientX - r.left - G.cx, e.clientY - r.top - G.cy) > G.R * 1.25) return;
     e.preventDefault(); AudioEngine.unlock();
     try { stage.setPointerCapture(e.pointerId); } catch (err) {}
-    W.dragging = true; W.lastA = angleAt(e, G); W.lastT = performance.now(); W.vel = 0; W.moved = 0; W.lastSeg = Math.floor(-W.rot / SEG);
+    const W = f.wheel, [x, y] = local(e);
+    W.dragging = true; W.lx = x; W.ly = y; W.lastT = performance.now(); W.vel = 0; W.moved = 0; W.lastSeg = Math.floor(-W.rot / SEG);
   });
   stage.addEventListener("pointermove", e => {
     const f = UI.finale; if (!f || f.phase !== "wheel" || !f.wheel.dragging) return;
     e.preventDefault();
-    const W = f.wheel, a = angleAt(e, W.geo), now = performance.now();
-    let d = a - W.lastA; if (d > Math.PI) d -= Math.PI * 2; if (d < -Math.PI) d += Math.PI * 2;
-    W.rot += d; W.moved += Math.abs(d);
-    const dt = Math.max(now - W.lastT, 1) / 1000; W.vel = W.vel * 0.5 + (d / dt) * 0.5;
-    W.lastA = a; W.lastT = now;
+    const W = f.wheel, G = W.geo, [x, y] = local(e), now = performance.now();
+    const dx = x - W.lx, dy = y - W.ly, rx = W.lx - G.cx, ry = W.ly - G.cy;
+    // how much this finger movement turns the wheel: the sideways part of the motion around the center.
+    // Near the middle, use the motion as if pushing the top edge so straight swipes still spin it.
+    const rr = Math.max(Math.hypot(rx, ry), G.R * 0.55), ux = Math.hypot(rx, ry) < G.R * 0.3 ? 0 : rx, uy = Math.hypot(rx, ry) < G.R * 0.3 ? -rr : ry;
+    const turn = (ux * dy - uy * dx) / (rr * rr);
+    W.rot += turn; W.moved += Math.abs(turn);
+    const dt = Math.max(now - W.lastT, 1) / 1000; W.vel = W.vel * 0.4 + (turn / dt) * 0.6;
+    W.lx = x; W.ly = y; W.lastT = now;
     const seg = Math.floor(-W.rot / SEG); if (seg !== W.lastSeg) { W.lastSeg = seg; AudioEngine.play("clack", 0.3); buzz(6); }
   });
   const release = () => {
     const f = UI.finale; if (!f || f.phase !== "wheel" || !f.wheel.dragging) return;
     const W = f.wheel; W.dragging = false;
-    if (performance.now() - W.lastT > 120) W.vel = 0;          // finger stopped before letting go
-    const flick = Math.abs(W.vel) > 1.5, dir = flick ? Math.sign(W.vel) : (W.moved > 0.3 ? 0 : 1);
-    if (dir === 0) return;                                      // dragged it but didn't flick: wait for a real spin
-    UI.spinWheel(dir, Math.min(Math.abs(W.vel) / 12, 1));
+    if (performance.now() - W.lastT > 150) W.vel *= 0.3;           // finger paused before letting go
+    if (Math.abs(W.vel) < 0.8 && W.moved < 0.25) return;            // just a touch: wait for a real swipe
+    const dir = Math.sign(W.vel || W.moved) || 1;
+    UI.spinWheel(dir, Math.min(Math.max(Math.abs(W.vel) / 10, 0.25), 1));
   };
   stage.addEventListener("pointerup", release);
   stage.addEventListener("pointercancel", release);
