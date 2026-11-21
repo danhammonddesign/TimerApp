@@ -2027,9 +2027,17 @@ const Trophy3D = {
   },
   nameTexture(sticker) {
     const T = THREE, c = document.createElement("canvas"); c.width = 512; c.height = 128;
-    const x = c.getContext("2d"); x.fillStyle = "#2B2210"; x.font = "900 64px Nunito, ui-rounded, system-ui, sans-serif"; x.textAlign = "center"; x.textBaseline = "middle";
+    const x = c.getContext("2d");
+    // brushed gold plate with a darker beveled edge
+    const g = x.createLinearGradient(0, 0, 0, 128);
+    g.addColorStop(0, "#FFF1B8"); g.addColorStop(0.35, "#FFD34D"); g.addColorStop(0.7, "#F2B01E"); g.addColorStop(1, "#C98A0C");
+    x.fillStyle = "#A8700A"; x.fillRect(0, 0, 512, 128);
+    x.fillStyle = g; x.fillRect(8, 8, 496, 112);
+    x.globalAlpha = 0.18; x.fillStyle = "#fff"; for (let i = 0; i < 40; i++) x.fillRect(8, 12 + i * 2.7, 496, 1); x.globalAlpha = 1;
+    x.fillStyle = "#3A2604"; x.font = "900 64px Nunito, ui-rounded, system-ui, sans-serif"; x.textAlign = "center"; x.textBaseline = "middle";
     let size = 64; while (x.measureText(sticker.name).width > 470 && size > 30) { size -= 4; x.font = `900 ${size}px Nunito, ui-rounded, system-ui, sans-serif`; }
-    x.fillText(sticker.name, 256, 68);
+    x.fillStyle = "rgba(255,248,214,0.85)"; x.fillText(sticker.name, 256, 70);   // light edge under the letters: looks engraved
+    x.fillStyle = "#3A2604"; x.fillText(sticker.name, 256, 67);
     const tex = new T.CanvasTexture(c); tex.encoding = T.sRGBEncoding; return tex;
   },
   /** builds the trophy; returns { group, update(t) } */
@@ -2155,7 +2163,9 @@ const Trophy3D = {
     add(new T.BoxGeometry(2.1, 0.5, 1.4), baseMat, 0, 0.25, 0, g);
     if (finish === "holo") add(new T.BoxGeometry(1.7, 0.32, 1.0), holo, 0, 0.25, 0, g);
     const cap = add(new T.CylinderGeometry(0.66, 0.74, 0.12, 48), finish === "candy" ? gold : (metal ? trim : gold), 0, 0.56, 0, g);
-    const plate = add(new T.PlaneGeometry(1.5, 0.34), new T.MeshPhysicalMaterial({ color: 0xffd36b, metalness: 1, roughness: 0.25, map: this.nameTexture(sticker) }), 0, 0.26, 0.71, g);
+    const nameTex = this.nameTexture(sticker);
+    const plate = add(new T.PlaneGeometry(1.6, 0.4), new T.MeshPhysicalMaterial({ map: nameTex, emissiveMap: nameTex, emissive: 0xffffff, emissiveIntensity: 0.45,
+      metalness: 0.35, roughness: 0.3, clearcoat: 1, clearcoatRoughness: 0.1 }), 0, 0.26, 0.711, g);
     if (finish === "holo") {
       const N = 70, sg = new T.BufferGeometry(), pos = new Float32Array(N * 3); sg.setAttribute("position", new T.BufferAttribute(pos, 3));
       const sparkles = new T.Points(sg, new T.PointsMaterial({ color: 0xfff3b0, size: 0.07, transparent: true, opacity: 0.9, blending: T.AdditiveBlending, depthWrite: false }));
